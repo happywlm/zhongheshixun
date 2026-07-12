@@ -5,8 +5,12 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.training.common.dto.UserForm;
 import com.training.common.dto.UserPageQuery;
+import com.training.common.entity.SysRole;
 import com.training.common.entity.SysUser;
+import com.training.common.entity.Teacher;
+import com.training.mapper.SysRoleMapper;
 import com.training.mapper.SysUserMapper;
+import com.training.mapper.TeacherMapper;
 import com.training.service.SysUserService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -22,6 +26,50 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
 
     @Resource
     private BCryptPasswordEncoder passwordEncoder;
+
+    @Resource
+    private SysRoleMapper sysRoleMapper;
+
+    @Resource
+    private TeacherMapper teacherMapper;
+
+    /**
+     * 根据角色编码（小写/大写均可）查询 sys_role.id
+     * @param roleCode 角色编码，如 admin/ADMIN/teacher/TEACHER
+     * @return 角色ID，未找到返回 null
+     */
+    private Long resolveRoleId(String roleCode) {
+        if (!StringUtils.hasText(roleCode)) {
+            return null;
+        }
+        // 统一转大写查 sys_role（表中 role_code 为 ADMIN/TEACHER/STUDENT）
+        SysRole role = sysRoleMapper.selectByCode(roleCode.toUpperCase());
+        return role != null ? role.getId() : null;
+    }
+
+    /**
+     * 为讲师角色用户自动创建 teacher 表关联记录
+     * @param userId 用户ID
+     * @param realName 讲师姓名
+     * @param role 角色编码
+     */
+    private void syncTeacherRecord(Long userId, String realName, String role) {
+        if (!"teacher".equalsIgnoreCase(role)) {
+            return;
+        }
+        // 检查是否已存在 teacher 记录（避免重复创建）
+        Teacher exist = teacherMapper.selectOne(
+                new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<Teacher>()
+                        .eq(Teacher::getUserId, userId)
+        );
+        if (exist != null) {
+            return;
+        }
+        Teacher teacher = new Teacher();
+        teacher.setUserId(userId);
+        teacher.setRealName(realName);
+        teacherMapper.insert(teacher);
+    }
 
     @Override
     public SysUser getByUsername(String username) {
@@ -57,12 +105,23 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
         user.setRealName(form.getRealName());
         user.setPhone(form.getPhone());
         user.setEmail(form.getEmail());
-        user.setRole(form.getRole());
+        // 关键修复：role 是非持久化字段，必须设置 roleId 才能写入数据库
+        // 根据前端传入的 role 字符串（admin/teacher/student）查 sys_role 表获取 role_id
+        Long roleId = resolveRoleId(form.getRole());
+        if (roleId == null) {
+            throw new IllegalArgumentException("无效的角色编码：" + form.getRole());
+        }
+        user.setRoleId(roleId);
         user.setAvatar(form.getAvatar());
         user.setOrgName(form.getOrgName());
         user.setJobType(form.getJobType());
         user.setStatus(form.getStatus() == null ? 1 : form.getStatus());
-        return save(user);
+        boolean ok = save(user);
+        // 讲师联动：角色为 teacher 时自动创建 teacher 表关联记录
+        if (ok) {
+            syncTeacherRecord(user.getId(), form.getRealName(), form.getRole());
+        }
+        return ok;
     }
 
     @Override
@@ -95,7 +154,14 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
             exist.setEmail(form.getEmail());
         }
         if (form.getRole() != null) {
-            exist.setRole(form.getRole());
+            // 关键修复：更新角色时必须同步更新 roleId
+            Long roleId = resolveRoleId(form.getRole());
+            if (roleId == null) {
+                throw new IllegalArgumentException("无效的角色编码：" + form.getRole());
+            }
+            exist.setRoleId(roleId);
+            // 讲师联动：角色切换为 teacher 时自动创建 teacher 表关联记录
+            syncTeacherRecord(exist.getId(), form.getRealName(), form.getRole());
         }
         if (form.getAvatar() != null) {
             exist.setAvatar(form.getAvatar());

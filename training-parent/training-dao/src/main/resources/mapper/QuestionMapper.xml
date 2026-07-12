@@ -13,6 +13,7 @@
         <result column="answer" property="answer"/>
         <result column="score" property="score"/>
         <result column="difficulty" property="difficulty"/>
+        <result column="analysis" property="analysis"/>
         <result column="create_time" property="createTime"/>
     </resultMap>
 
@@ -22,6 +23,9 @@
             deleted = 0
             <if test="title != null and title != ''">
                 AND title LIKE CONCAT('%', #{title}, '%')
+            </if>
+            <if test="courseId != null">
+                AND course_id = #{courseId}
             </if>
             <if test="questionType != null">
                 AND question_type = #{questionType}

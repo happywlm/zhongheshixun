@@ -37,7 +37,7 @@ public class ExamServiceImpl extends ServiceImpl<ExamMapper, Exam> implements Ex
     @Override
     public IPage<Exam> page(ExamPageQuery query) {
         Page<Exam> page = new Page<>(query.getPageNum(), query.getPageSize());
-        return baseMapper.selectExamPage(page, query.getTitle(), query.getExamType(), query.getStatus());
+        return baseMapper.selectExamPage(page, query.getTitle(), query.getCourseId(), query.getExamType(), query.getStatus());
     }
 
     @Override

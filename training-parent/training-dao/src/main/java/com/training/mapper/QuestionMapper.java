@@ -15,10 +15,11 @@ import java.util.List;
 public interface QuestionMapper extends BaseMapper<Question> {
 
     /**
-     * 分页查询试题列表（支持按标题、类型、难度筛选）
+     * 分页查询试题列表（支持按课程、标题、类型、难度筛选）
      */
     IPage<Question> selectQuestionPage(IPage<Question> page,
                                        @Param("title") String title,
+                                       @Param("courseId") Long courseId,
                                        @Param("questionType") Integer questionType,
                                        @Param("difficulty") Integer difficulty);
 

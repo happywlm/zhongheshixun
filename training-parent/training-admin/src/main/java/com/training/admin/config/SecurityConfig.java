@@ -64,7 +64,7 @@ public class SecurityConfig {
                         .antMatchers("/admin/knowledge/**").hasAnyRole("ADMIN", "TEACHER")
                         .antMatchers("/admin/question/**").hasAnyRole("ADMIN", "TEACHER")
                         .antMatchers("/admin/exam/**").hasAnyRole("ADMIN", "TEACHER")
-                        .antMatchers("/admin/plan/**").hasAnyRole("ADMIN", "TEACHER")
+                        .antMatchers("/admin/train-plan/**").hasAnyRole("ADMIN", "TEACHER")
                         .antMatchers("/admin/consult/**").hasAnyRole("ADMIN", "TEACHER")
                         .antMatchers("/admin/stats/**").hasAnyRole("ADMIN", "TEACHER")
                         // 用户管理、讲师管理等其他后台路径要求 ADMIN 角色

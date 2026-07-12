@@ -4,7 +4,7 @@
       <el-form inline @submit.prevent="handleSearch">
         <el-form-item label="计划名称">
           <el-input
-            v-model="query.keyword"
+            v-model="query.title"
             placeholder="请输入计划名称"
             clearable
             style="width: 220px"
@@ -67,14 +67,14 @@ const total = ref(0)
 const query = ref({
   pageNum: 1,
   pageSize: 9,
-  keyword: '',
+  title: '',
 })
 
 async function fetchList() {
   loading.value = true
   try {
     const params = { ...query.value }
-    if (!params.keyword) delete params.keyword
+    if (!params.title) delete params.title
     const res = await getPlanList(params)
     plans.value = res?.records || res?.list || res || []
     total.value = res?.total ?? plans.value.length
@@ -93,7 +93,7 @@ function handleSearch() {
 }
 
 function handleReset() {
-  query.value = { pageNum: 1, pageSize: 9, keyword: '' }
+  query.value = { pageNum: 1, pageSize: 9, title: '' }
   fetchList()
 }
 

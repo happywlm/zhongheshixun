@@ -28,6 +28,9 @@
             <if test="title != null and title != ''">
                 AND title LIKE CONCAT('%', #{title}, '%')
             </if>
+            <if test="courseId != null">
+                AND course_id = #{courseId}
+            </if>
             <if test="examType != null">
                 AND exam_type = #{examType}
             </if>

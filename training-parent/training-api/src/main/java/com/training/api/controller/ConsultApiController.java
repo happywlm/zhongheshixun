@@ -58,4 +58,24 @@ public class ConsultApiController {
         IPage<ConsultRecord> page = consultService.myList(userId, pageNum, pageSize);
         return Result.success(PageResult.of(page.getRecords(), page.getTotal(), pageNum, pageSize));
     }
+
+    /**
+     * 学员主动转人工：将已自动回复的咨询转为人工工单
+     * body: { consultId }
+     */
+    @PostMapping("/transfer-human")
+    public Result<Void> transferHuman(@RequestBody Map<String, Object> body) {
+        Object idObj = body.get("consultId");
+        if (idObj == null) {
+            return Result.error(400, "consultId 不能为空");
+        }
+        Long consultId;
+        try {
+            consultId = Long.parseLong(String.valueOf(idObj));
+        } catch (NumberFormatException e) {
+            return Result.error(400, "consultId 格式错误");
+        }
+        consultService.transferHuman(consultId);
+        return Result.success(null);
+    }
 }

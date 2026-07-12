@@ -105,6 +105,44 @@ Page({
     }
   },
 
+  // 转人工：将已自动回复的咨询转为人工工单
+  async onTransferHuman(e) {
+    const consultId = e.currentTarget.dataset.id
+    if (!consultId) return
+    wx.showModal({
+      title: '转人工客服',
+      content: '确认将此咨询转为人工处理？老师将尽快为您回复。',
+      confirmText: '确认转人工',
+      cancelText: '取消',
+      success: async (res) => {
+        if (!res.confirm) return
+        try {
+          wx.showLoading({ title: '处理中...' })
+          await consultApi.transferHuman(consultId)
+          wx.hideLoading()
+          // 更新本地列表：清空答案、标记为等待人工回复
+          const consults = this.data.consults.map(item => {
+            if (item.id === consultId) {
+              return {
+                ...item,
+                answer: null,
+                isAuto: 0,
+                replyTime: null,
+                matched: false
+              }
+            }
+            return item
+          })
+          this.setData({ consults })
+          wx.showToast({ title: '已转人工，等待回复', icon: 'none' })
+        } catch (e) {
+          wx.hideLoading()
+          // 错误由 request 统一 toast
+        }
+      }
+    })
+  },
+
   formatTime(t) {
     if (!t) return ''
     // 2026-07-08 10:15:30 → 07-08 10:15

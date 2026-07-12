@@ -89,6 +89,22 @@
   color: #1677ff;
 }
 
+/* 转人工按钮 */
+.action-bar {
+  margin-left: 72rpx;
+  margin-top: 8rpx;
+  margin-bottom: 8rpx;
+}
+.transfer-btn {
+  background: #fff7e6 !important;
+  color: #d46b08 !important;
+  border: 1rpx solid #ffd591 !important;
+  font-size: 24rpx !important;
+  border-radius: 24rpx !important;
+  padding: 0 24rpx !important;
+  line-height: 2 !important;
+}
+
 .empty {
   text-align: center;
   color: #999;

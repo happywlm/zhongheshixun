@@ -42,6 +42,9 @@ public class Question {
     /** 难度：1简单 2普通 3困难 */
     private Integer difficulty;
 
+    /** 答案解析 */
+    private String analysis;
+
     private LocalDateTime createTime;
 
     /** 逻辑删除 */

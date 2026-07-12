@@ -149,6 +149,10 @@
             <el-radio :value="3">困难</el-radio>
           </el-radio-group>
         </el-form-item>
+        <el-form-item label="分值" prop="score">
+          <el-input-number v-model="formData.score" :min="1" :max="100" :step="1" />
+          <span style="margin-left: 8px; color: #909399; font-size: 12px;">分</span>
+        </el-form-item>
         <el-form-item label="题干" prop="title">
           <el-input
             v-model="formData.title"
@@ -246,7 +250,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, watch } from 'vue'
+import { ref, reactive, onMounted, watch, nextTick } from 'vue'
 import { Search, Plus } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
 import { getCoursePage } from '@/api/course'
@@ -283,6 +287,7 @@ const formData = reactive({
   title: '',
   questionType: 1,
   difficulty: 1,
+  score: 5,
   answer: '',
   options: '',
   analysis: ''
@@ -292,6 +297,8 @@ const optionList = ref<{ key: string; value: string }[]>([
   { key: 'B', value: '' }
 ])
 const multiAnswer = ref<string[]>([])
+// 编辑回填标志位：阻止 watch 在编辑数据回填时清空答案
+const isEditLoading = ref(false)
 
 const formRules: FormRules = {
   courseId: [{ required: true, message: '请选择课程', trigger: 'change' }],
@@ -378,6 +385,7 @@ function resetForm() {
   formData.title = ''
   formData.questionType = 1
   formData.difficulty = 1
+  formData.score = 5
   formData.answer = ''
   formData.options = ''
   formData.analysis = ''
@@ -397,6 +405,8 @@ function handleCreate() {
 
 async function handleEdit(row: any) {
   resetForm()
+  // 设置标志位，阻止 watch 在 questionType 变化时清空已回填的答案
+  isEditLoading.value = true
   dialogMode.value = 'edit'
   try {
     const res: any = await getQuestionDetail(row.id)
@@ -405,7 +415,8 @@ async function handleEdit(row: any) {
     formData.courseId = data.courseId
     formData.title = data.title
     formData.questionType = data.questionType
-    formData.difficulty = data.difficulty
+    formData.difficulty = data.difficulty || 1
+    formData.score = data.score || 5
     formData.answer = data.answer || ''
     formData.analysis = data.analysis || ''
     // 回填选项
@@ -422,8 +433,12 @@ async function handleEdit(row: any) {
     if (data.questionType === 2 && data.answer) {
       multiAnswer.value = data.answer.split(',').map((s: string) => s.trim())
     }
+    // 等待 watch 触发完毕后再关闭标志位，确保答案不被清空
+    await nextTick()
+    isEditLoading.value = false
     dialogVisible.value = true
   } catch (e) {
+    isEditLoading.value = false
     // 错误已在 request 拦截器处理
   }
 }
@@ -443,8 +458,10 @@ function removeOption(idx: number) {
   })
 }
 
-// 监听题型变化，重置选项和答案
+// 监听题型变化，重置选项和答案（编辑回填时跳过）
 watch(() => formData.questionType, (newType) => {
+  // 编辑数据回填期间不清空答案，避免覆盖已回填的数据
+  if (isEditLoading.value) return
   if (newType === 1 || newType === 2) {
     if (optionList.value.length === 0) {
       optionList.value = [

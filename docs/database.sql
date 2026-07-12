@@ -1,6 +1,6 @@
 -- ============================================================
 -- 四川省基层卫生人员网络培训平台 - 数据库初始化脚本
--- 版本: v1.2.1 (2026-07-12)
+-- 版本: v1.3.0 (2026-07-12)
 --
 -- 使用方法 (Git Bash / WSL 推荐, 切勿用 PowerShell 管线):
 --   mysql -uroot -proot -e "CREATE DATABASE IF NOT EXISTS training DEFAULT CHARSET utf8mb4;"
@@ -10,11 +10,17 @@
 --   ⚠️ PowerShell 下请改用 Git Bash: bash -c "mysql ... < docs/database.sql"
 --
 -- 说明:
---   - 20 张表 + 20 条权限字典 + 47 条角色绑定 (RBAC v1.2.1)
+--   - 21 张表 + 20 条权限字典 + 47 条角色绑定 (RBAC v1.2.1)
 --   - 演示账号(admin/teacher01/student01-06)密码统一: 123456
 --   - 示例课程 4 门 / 知识点 5 条 / 试题 10 道 / 考试 3 场
 --   - 备份了 1 场 student01 已批阅的考试记录(exam_record=1,exam_answer=10 行)
 --   - 含 ECharts 演示素材: student02-06 报名/学习记录/咨询 SLA
+--
+-- v1.3.0 (2026-07-12) 变更:
+--   - [新增] question 表增加 analysis TEXT 列（答案解析，编辑/详情页展示）
+--   - [新增] consult_keyword 表（咨询关键词路由配置，方案A: AI优先+关键词转人工）
+--   - [新增] consult_keyword 预置 6 条 to_human 关键词（转人工/找老师/人工客服/真人/人工/客服）
+--   - 与 V13__add_analysis_and_consult_keyword.sql 同步
 --
 -- v1.2.1 (2026-07-12) 变更 (合并 db-upgrade-v1_2_1.sql):
 --   - [P0] roleperm: ADMIN 20 / TEACHER 17 / STUDENT 10 = 47 条 (原 35 条)
@@ -29,8 +35,8 @@
 --   - 已与 V2_1__fix_schema_align_entity.sql 同步,新部署时一次跑即可
 --
 -- 升级已有数据库:
---   - v1.2.0 -> v1.2.1: 跑 docs/db-upgrade-v1_2_1.sql
---   - 全新部署: 直接跑本文件 (一体化 20 张表 + v1.2.1 修复)
+--   - v1.2.1 -> v1.3.0: 跑 docs/V13__add_analysis_and_consult_keyword.sql
+--   - 全新部署: 直接跑本文件 (一体化 21 张表 + v1.3.0 修复)
 -- ============================================================
 
 SET NAMES utf8mb4;USE training;
@@ -231,6 +237,7 @@ CREATE TABLE question (
   answer VARCHAR(500) NOT NULL COMMENT '正确答案',
   score INT DEFAULT 1 COMMENT '分值',
   difficulty TINYINT DEFAULT 2 COMMENT '难度:1 简单 2 中等 3 困难',
+  analysis TEXT COMMENT '答案解析(可选,编辑/详情页展示)',
   create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
   deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除:0 正常 1 已删'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='试题表';
@@ -342,6 +349,20 @@ CREATE TABLE consult_record (
   deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除:0 正常 1 已删',
   KEY idx_consult_student (student_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='咨询记录表';
+
+-- 咨询关键词路由配置表（方案A: AI优先+关键词转人工）
+-- 学员提问命中 to_human 关键词时直接创建人工工单，跳过 AI 自动回复
+CREATE TABLE consult_keyword (
+  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+  keyword VARCHAR(50) NOT NULL COMMENT '关键词',
+  action VARCHAR(20) NOT NULL DEFAULT 'to_human' COMMENT '动作:to_human 转人工 / to_ai 转 AI',
+  sort_order INT NOT NULL DEFAULT 0 COMMENT '排序(升序匹配)',
+  enabled TINYINT NOT NULL DEFAULT 1 COMMENT '启用:0 关闭 1 启用',
+  create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除:0 正常 1 已删',
+  KEY idx_keyword (keyword),
+  KEY idx_enabled_sort (enabled, sort_order)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='咨询关键词路由配置表';
 
 -- 资源文件表
 CREATE TABLE resource_file (
@@ -562,5 +583,14 @@ INSERT INTO consult_record (student_id,question,answer,is_auto,create_time,reply
 (8,'少数民族语言课程什么时候上线?',
    '目前平台已完成多语言接口预留，具体语言包上线以省卫健委公告为准。已转产品开发团队跟进。',
    0,'2026-07-09 14:00:00',NULL);
+
+-- 咨询关键词路由预置数据（命中即转人工）
+INSERT INTO consult_keyword (keyword, action, sort_order, enabled) VALUES
+('转人工','to_human',1,1),
+('找老师','to_human',2,1),
+('人工客服','to_human',3,1),
+('真人','to_human',4,1),
+('人工','to_human',5,1),
+('客服','to_human',6,1);
 
 SET FOREIGN_KEY_CHECKS = 1;

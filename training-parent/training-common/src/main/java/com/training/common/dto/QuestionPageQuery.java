@@ -8,6 +8,7 @@ import lombok.Data;
 @Data
 public class QuestionPageQuery extends PageQuery {
     private String title;
+    private Long courseId;
     private Integer questionType;
     private Integer difficulty;
 }

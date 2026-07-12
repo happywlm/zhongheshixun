@@ -13,10 +13,11 @@ import org.apache.ibatis.annotations.Param;
 public interface ExamMapper extends BaseMapper<Exam> {
 
     /**
-     * 分页查询考试列表（支持按标题、类型、状态筛选）
+     * 分页查询考试列表（支持按课程、标题、类型、状态筛选）
      */
     IPage<Exam> selectExamPage(IPage<Exam> page,
                                @Param("title") String title,
+                               @Param("courseId") Long courseId,
                                @Param("examType") Integer examType,
                                @Param("status") Integer status);
 }

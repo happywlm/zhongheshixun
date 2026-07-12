@@ -73,4 +73,11 @@ public interface ConsultService {
      * 学员查询自己的咨询列表
      */
     IPage<ConsultRecord> myList(Long studentId, int pageNum, int pageSize);
+
+    /**
+     * 学员主动转人工：将已自动回复的咨询转为人工工单等待人工回复
+     *
+     * @param consultId 咨询记录ID
+     */
+    void transferHuman(Long consultId);
 }

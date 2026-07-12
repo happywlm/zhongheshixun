@@ -287,7 +287,8 @@ function handleEdit(row: any) {
   formData.realName = row.realName
   formData.phone = row.phone || ''
   formData.email = row.email || ''
-  formData.role = row.role
+  // 后端返回 role_code 为大写（TEACHER/ADMIN/STUDENT），前端 select 选项 value 为小写，需转换以正确回填
+  formData.role = (row.role || '').toLowerCase()
   formData.orgName = row.orgName || ''
   formData.jobType = row.jobType || ''
   dialogVisible.value = true

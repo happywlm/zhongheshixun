@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
+import { ElMessage } from 'element-plus'
 import { useUserStore } from '@/store/user'
 
 const routes: RouteRecordRaw[] = [
@@ -102,17 +103,27 @@ router.beforeEach((to, _from, next) => {
   const userStore = useUserStore()
   if (to.meta.public) {
     next()
-  } else if (!userStore.token) {
-    next('/login')
-  } else {
-    // 非 ADMIN 角色禁止直接访问用户管理和讲师管理
-    const userRole = (userStore.userInfo?.role || '').toUpperCase()
-    if (userRole !== 'ADMIN' && (to.path === '/users' || to.path === '/teachers')) {
-      next('/dashboard')
-    } else {
-      next()
-    }
+    return
   }
+  if (!userStore.token) {
+    next('/login')
+    return
+  }
+  const userRole = (userStore.userInfo?.role || '').toUpperCase()
+  // 后台管理平台仅允许 ADMIN 和 TEACHER 角色
+  // STUDENT 角色或角色缺失时清除残留 token，避免所有 /admin/** 请求返回 403
+  if (userRole !== 'ADMIN' && userRole !== 'TEACHER') {
+    userStore.logout()
+    ElMessage.warning('该账号无后台管理权限，请使用教师或管理员账号登录')
+    next('/login')
+    return
+  }
+  // 非 ADMIN 角色禁止直接访问用户管理和讲师管理
+  if (userRole !== 'ADMIN' && (to.path === '/users' || to.path === '/teachers')) {
+    next('/dashboard')
+    return
+  }
+  next()
 })
 
 export default router

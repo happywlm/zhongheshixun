@@ -18,7 +18,7 @@ public class QuestionServiceImpl extends ServiceImpl<QuestionMapper, Question> i
     @Override
     public IPage<Question> page(QuestionPageQuery query) {
         Page<Question> page = new Page<>(query.getPageNum(), query.getPageSize());
-        return baseMapper.selectQuestionPage(page, query.getTitle(), query.getQuestionType(), query.getDifficulty());
+        return baseMapper.selectQuestionPage(page, query.getTitle(), query.getCourseId(), query.getQuestionType(), query.getDifficulty());
     }
 
     @Override

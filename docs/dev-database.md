@@ -1,7 +1,7 @@
 # 数据库设计文档（dev-database.md）
 
 > 四川省基层卫生人员网络培训平台 — 数据库设计与实现手册
-> 技术栈：Spring Boot + MySQL 8.0，共 **17 张表**
+> 技术栈：Spring Boot + MySQL 8.0，共 **18 张表**（v1.3.0 新增 consult_keyword）
 > 配套文档：[`开发文档.md`](./开发文档.md) | [`dev-backend.md`](./dev-backend.md) | [`dev-api.md`](./dev-api.md)
 
 ---
@@ -27,7 +27,7 @@
 | 5 | `course_enroll` | 课程报名表 | 示例 2 条 | `student_id → sys_user.id`, `course_id → course.id` |
 | 6 | `study_record` | 学习记录表（断点续播） | 示例 2 条 | 关联 `sys_user / course / course_chapter` |
 | 7 | `knowledge_point` | 知识点表 | 示例 3 条 | `course_id → course.id` |
-| 8 | `question` | 试题表 | 示例 3 条 | `course_id → course.id`, `knowledge_point_id → knowledge_point.id` |
+| 8 | `question` | 试题表（v1.3.0 新增 analysis） | 示例 3 条 | `course_id → course.id`, `knowledge_point_id → knowledge_point.id` |
 | 9 | `exam` | 考试表 | 示例 2 条 | `course_id → course.id`, `plan_id → train_plan.id` |
 | 10 | `exam_paper` | 试卷表（学员抽题快照） | 示例 1 条 | `exam_id → exam.id`, `student_id → sys_user.id` |
 | 11 | `exam_record` | 考试记录表 | 示例 1 条 | `student_id / exam_id / paper_id` |
@@ -36,7 +36,8 @@
 | 14 | `plan_course` | 计划关联课程表 | 示例 2 条 | `plan_id → train_plan.id`, `course_id → course.id` |
 | 15 | `knowledge_base` | 知识库表（智能咨询） | 示例 2 条 | — |
 | 16 | `consult_record` | 咨询记录表（含 SLA） | 示例 1 条 | `student_id → sys_user.id` |
-| 17 | `resource_file` | 资源文件表 | 示例 2 条 | `course_id → course.id`, `uploader_id → sys_user.id` |
+| 17 | `consult_keyword` | **咨询关键词路由配置（v1.3.0 新增）** | 预置 6 条 | — |
+| 18 | `resource_file` | 资源文件表 | 示例 2 条 | `course_id → course.id`, `uploader_id → sys_user.id` |
 
 ---
 
@@ -308,7 +309,7 @@ CREATE TABLE `knowledge_point` (
 
 ### 8. question — 试题表
 
-**说明**：题库，支持 5 种题型（单选/多选/判断/填空/问答），`options` 以 JSON 存储选项。
+**说明**：题库，支持 5 种题型（单选/多选/判断/填空/问答），`options` 以 JSON 存储选项。`analysis` 列（v1.3.0 新增）存储答案解析，供编辑/详情页展示。
 
 ```sql
 CREATE TABLE `question` (
@@ -321,6 +322,7 @@ CREATE TABLE `question` (
   `answer`              TEXT         DEFAULT NULL                   COMMENT '正确答案',
   `score`               DECIMAL(5,2) DEFAULT 0                      COMMENT '分值',
   `difficulty`          TINYINT      NOT NULL DEFAULT 2              COMMENT '难度: 1简单 2普通 3困难',
+  `analysis`            TEXT         DEFAULT NULL                   COMMENT '答案解析(可选,编辑/详情页展示)',
   `create_time`         DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   PRIMARY KEY (`id`),
   KEY `idx_course` (`course_id`),
@@ -342,6 +344,7 @@ CREATE TABLE `question` (
 | answer | TEXT | — | 标准答案 |
 | score | DECIMAL(5,2) | default 0 | 分值 |
 | difficulty | TINYINT | NOT NULL, default 2 | 1简单/2普通/3困难 |
+| analysis | TEXT | default NULL | 答案解析（v1.3.0 新增，可选，编辑/详情页展示） |
 | create_time | DATETIME | NOT NULL | 创建时间 |
 
 ---
@@ -632,9 +635,59 @@ CREATE TABLE `consult_record` (
 
 **索引说明**：`idx_sla` 支持按超时状态+回复方式统计 SLA 达成率。
 
+**v1.3.0 转人工流程**：学员点击"转人工客服"按钮 → `is_auto=0, answer=NULL, reply_time=NULL`（通过 LambdaUpdateWrapper 显式置空，规避 MyBatis-Plus 默认 NOT_NULL 策略）。命中关键词（见 consult_keyword 表）的提问将直接创建人工工单，跳过 AI 回复。
+
 ---
 
-### 17. resource_file — 资源文件表
+### 17. consult_keyword — 咨询关键词路由配置表（v1.3.0 新增）
+
+**说明**：咨询关键词路由配置表（方案 A：AI 优先 + 关键词转人工）。学员提问命中 `to_human` 关键词时直接创建人工工单，跳过 AI 自动回复。预置 6 条转人工关键词（转人工/找老师/人工客服/真人/人工/客服），支持后台扩展。
+
+```sql
+CREATE TABLE `consult_keyword` (
+  `id`          BIGINT       NOT NULL AUTO_INCREMENT        COMMENT '关键词ID',
+  `keyword`     VARCHAR(50)  NOT NULL                       COMMENT '关键词',
+  `action`      VARCHAR(20)  NOT NULL DEFAULT 'to_human'     COMMENT '动作: to_human 转人工 / to_ai 转 AI',
+  `sort_order`  INT          NOT NULL DEFAULT 0              COMMENT '排序(升序匹配)',
+  `enabled`     TINYINT      NOT NULL DEFAULT 1              COMMENT '启用: 0 关闭 1 启用',
+  `create_time` DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `deleted`     TINYINT      NOT NULL DEFAULT 0              COMMENT '逻辑删除: 0 正常 1 已删',
+  PRIMARY KEY (`id`),
+  KEY `idx_keyword` (`keyword`),
+  KEY `idx_enabled_sort` (`enabled`, `sort_order`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='咨询关键词路由配置表';
+```
+
+**字段说明**
+
+| 字段 | 类型 | 约束 | 说明 |
+|------|------|------|------|
+| id | BIGINT | PK | 关键词主键 |
+| keyword | VARCHAR(50) | NOT NULL | 关键词文本（命中即触发动作） |
+| action | VARCHAR(20) | NOT NULL, default 'to_human' | to_human=转人工 / to_ai=转 AI |
+| sort_order | INT | NOT NULL, default 0 | 排序（升序匹配，数字小优先） |
+| enabled | TINYINT | NOT NULL, default 1 | 0 关闭 / 1 启用 |
+| create_time | DATETIME | NOT NULL | 创建时间 |
+| deleted | TINYINT | NOT NULL, default 0 | 逻辑删除 |
+
+**索引说明**：`idx_keyword` 支持快速查找关键词；`idx_enabled_sort` 支持按启用状态+排序高效取数。
+
+**预置数据**（6 条）：
+
+| keyword | action | sort_order | enabled |
+|---------|--------|------------|---------|
+| 转人工 | to_human | 1 | 1 |
+| 找老师 | to_human | 2 | 1 |
+| 人工客服 | to_human | 3 | 1 |
+| 真人 | to_human | 4 | 1 |
+| 人工 | to_human | 5 | 1 |
+| 客服 | to_human | 6 | 1 |
+
+**使用方式**：`ConsultServiceImpl.containsTransferHumanKeyword(question)` 查询 `enabled=1 AND action='to_human'` 的关键词，按 `sort_order` 升序遍历，若 `question.contains(keyword)` 返回 true，直接创建人工工单。
+
+---
+
+### 18. resource_file — 资源文件表
 
 **说明**：课程关联的资源文件（视频/文档/PPT/PDF）。
 

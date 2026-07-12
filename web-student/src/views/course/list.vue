@@ -5,7 +5,7 @@
       <el-form inline @submit.prevent="handleSearch">
         <el-form-item label="课程名称">
           <el-input
-            v-model="query.keyword"
+            v-model="query.title"
             placeholder="请输入课程名称"
             clearable
             style="width: 220px"
@@ -14,7 +14,7 @@
         </el-form-item>
         <el-form-item label="课程类型">
           <el-select
-            v-model="query.type"
+            v-model="query.courseType"
             placeholder="全部"
             clearable
             style="width: 140px"
@@ -95,16 +95,16 @@ const total = ref(0)
 const query = ref({
   pageNum: 1,
   pageSize: 12,
-  keyword: '',
-  type: null,
+  title: '',
+  courseType: null,
 })
 
 async function fetchList() {
   loading.value = true
   try {
     const params = { ...query.value }
-    if (!params.type) delete params.type
-    if (!params.keyword) delete params.keyword
+    if (!params.courseType) delete params.courseType
+    if (!params.title) delete params.title
     const res = await getCourseList(params)
     courses.value = res?.records || res?.list || res || []
     total.value = res?.total ?? courses.value.length
@@ -123,7 +123,7 @@ function handleSearch() {
 }
 
 function handleReset() {
-  query.value = { pageNum: 1, pageSize: 12, keyword: '', type: null }
+  query.value = { pageNum: 1, pageSize: 12, title: '', courseType: null }
   fetchList()
 }
 

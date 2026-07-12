@@ -129,8 +129,8 @@ import {
 import VChart from 'vue-echarts'
 import { useUserStore } from '@/stores/user'
 import { getMyStats } from '@/api/stats'
-import { getMyCourses } from '@/api/study'
-import { getCourseList } from '@/api/course'
+import { getMyCourses, getProgress } from '@/api/study'
+import { getCourseList, getChapterList } from '@/api/course'
 import { toChartOption } from '@/utils/chart'
 import { typeText, typeColor } from '@/utils/dict'
 // P3-12 修复：从 utils/format 导入安全格式化函数，避免在视图内重复定义
@@ -189,7 +189,33 @@ async function fetchData() {
     }
     try {
       const res = await getMyCourses({ pageNum: 1, pageSize: 20 })
-      myCourses.value = res?.records || res?.list || res || []
+      const list = res?.records || res?.list || res || []
+      // ISSUE-001 修复：后端 /study/my-courses 仅返回 Course 实体，无 progress 字段，
+      // 导致首页"继续学习"进度条全部显示 0%。这里对每门课程并行拉取
+      // 章节列表 + 学习进度，按"已完成章节 / 总章节"算出真实进度，
+      // 与课程学习页 /courses/:id/learn 的 totalProgress 计算口径保持一致。
+      myCourses.value = await Promise.all(
+        list.map(async (course) => {
+          try {
+            const [chapters, progressList] = await Promise.all([
+              getChapterList(course.id).catch(() => []),
+              getProgress(course.id).catch(() => []),
+            ])
+            const total = Array.isArray(chapters) ? chapters.length : 0
+            const done = Array.isArray(progressList)
+              ? progressList.filter(
+                  (p) => p?.completed === 1 || p?.completed === true
+                ).length
+              : 0
+            return {
+              ...course,
+              progress: total > 0 ? Math.round((done / total) * 100) : 0,
+            }
+          } catch (e) {
+            return { ...course, progress: 0 }
+          }
+        })
+      )
     } catch (e) {
       console.warn('[home] getMyCourses 失败，使用空列表', e)
       myCourses.value = []
