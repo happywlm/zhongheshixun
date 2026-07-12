@@ -96,6 +96,12 @@ check-plan.js
 write_result.py
 batch_md_to_docx.py
 md_to_docx.py
+test_*.py
+*_debug*.py
+*_full.py
+production/backup/
+*.sql.gz
+*.sql.bak
 
 # ============ PowerDesigner（工具安装文件，不上传） ============
 powerDesigner/
