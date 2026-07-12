@@ -1,16 +1,27 @@
 -- ============================================================
 -- 四川省基层卫生人员网络培训平台 - 数据库初始化脚本
--- 版本: v1.2.0 (2026-07-12)
+-- 版本: v1.2.1 (2026-07-12)
 --
--- 使用方法:
+-- 使用方法 (Git Bash / WSL 推荐, 切勿用 PowerShell 管线):
 --   mysql -uroot -proot -e "CREATE DATABASE IF NOT EXISTS training DEFAULT CHARSET utf8mb4;"
---   mysql -uroot -proot training < docs/database.sql
+--   mysql -uroot -proot --default-character-set=utf8mb4 training < docs/database.sql
+--
+--   ⚠️ 切勿使用 PowerShell 管线 (Get-Content | mysql), 会把 UTF-8 字节破坏成 ASCII '?'
+--   ⚠️ PowerShell 下请改用 Git Bash: bash -c "mysql ... < docs/database.sql"
 --
 -- 说明:
---   - 20 张表 + 20 条权限字典 + 角色绑定
+--   - 20 张表 + 20 条权限字典 + 47 条角色绑定 (RBAC v1.2.1)
 --   - 演示账号(admin/teacher01/student01-06)密码统一: 123456
 --   - 示例课程 4 门 / 知识点 5 条 / 试题 10 道 / 考试 3 场
 --   - 备份了 1 场 student01 已批阅的考试记录(exam_record=1,exam_answer=10 行)
+--   - 含 ECharts 演示素材: student02-06 报名/学习记录/咨询 SLA
+--
+-- v1.2.1 (2026-07-12) 变更 (合并 db-upgrade-v1_2_1.sql):
+--   - [P0] roleperm: ADMIN 20 / TEACHER 17 / STUDENT 10 = 47 条 (原 35 条)
+--   - [P1] 补齐 15 处高频查询索引 (course_chapter/course_enroll/study_record 等)
+--   - [P2] question #9 去重 (高血压诊断标准 -> 高血压控制目标)
+--   - [P2+] 演示数据均衡化 (course_enroll student02-06 / study_record 10 条 / consult_record 3 条)
+--   - [P3] course.offline_filename 加列对齐设计文档
 --
 -- v1.2.0 (2026-07-12) 变更:
 --   - teacher.user_id 允许 NULL（独立维护讲师档案场景,前端表单不强制传 user_id）
@@ -18,11 +29,11 @@
 --   - 已与 V2_1__fix_schema_align_entity.sql 同步,新部署时一次跑即可
 --
 -- 升级已有数据库:
---   - 已有数据: 跑 docs/db-upgrade-from-v1.sql (V2_0 + V2_1 增量)
---   - 全新部署: 直接跑本文件 (一体化 17+4 张表 + V2_1 修复)
+--   - v1.2.0 -> v1.2.1: 跑 docs/db-upgrade-v1_2_1.sql
+--   - 全新部署: 直接跑本文件 (一体化 20 张表 + v1.2.1 修复)
 -- ============================================================
 
-SET NAMES utf8mb4;\nUSE training;
+SET NAMES utf8mb4;USE training;
 SET FOREIGN_KEY_CHECKS = 0;
 
 -- 咨询记录表
@@ -86,7 +97,8 @@ CREATE TABLE sys_user (
   create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
   update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除:0 正常 1 已删',
-  UNIQUE KEY uk_username (username)
+  UNIQUE KEY uk_username (username),
+  KEY idx_user_role (role_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户表';
 
 -- 角色字典表
@@ -132,7 +144,8 @@ CREATE TABLE teacher (
   direction VARCHAR(200) COMMENT '教学方向',
   intro TEXT COMMENT '讲师简介',
   create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
-  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除:0 正常 1 已删'
+  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除:0 正常 1 已删',
+  KEY idx_teacher_user (user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='培训讲师表';
 
 -- 课程表
@@ -146,9 +159,11 @@ CREATE TABLE course (
   total_hours INT DEFAULT 0 COMMENT '总课时',
   status TINYINT DEFAULT 0 COMMENT '状态:0 草稿 1 已发布 2 已下架',
   offline_flag TINYINT DEFAULT 0 COMMENT '是否支持离线学习:0 否 1 是',
+  offline_filename VARCHAR(255) DEFAULT NULL COMMENT '离线学习 ZIP 文件名(NULL 表示不可下载)',
   create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
   update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除:0 正常 1 已删'
+  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除:0 正常 1 已删',
+  KEY idx_course_teacher (teacher_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='课程表';
 
 -- 课程章节表
@@ -160,7 +175,8 @@ CREATE TABLE course_chapter (
   video_url VARCHAR(255) DEFAULT NULL COMMENT '视频地址',
   duration INT DEFAULT 0 COMMENT '时长(秒)',
   create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
-  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除:0 正常 1 已删'
+  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除:0 正常 1 已删',
+  KEY idx_chapter_course (course_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='课程章节表';
 
 -- 课程报名表
@@ -170,7 +186,9 @@ CREATE TABLE course_enroll (
   course_id BIGINT NOT NULL COMMENT '课程ID',
   create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
   deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除:0 正常 1 已删',
-  UNIQUE KEY uk_student_course (student_id, course_id)
+  UNIQUE KEY uk_student_course (student_id, course_id),
+  KEY idx_enroll_student (student_id),
+  KEY idx_enroll_course (course_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='课程报名表';
 
 -- 学习记录表
@@ -186,7 +204,9 @@ CREATE TABLE study_record (
   create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
   update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除:0 正常 1 已删',
-  UNIQUE KEY uk_record (student_id,course_id,chapter_id)
+  UNIQUE KEY uk_record (student_id,course_id,chapter_id),
+  KEY idx_study_student (student_id),
+  KEY idx_study_chapter (chapter_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='学习记录表';
 
 -- 知识点表
@@ -196,7 +216,8 @@ CREATE TABLE knowledge_point (
   name VARCHAR(200) NOT NULL COMMENT '知识点名称',
   description TEXT COMMENT '知识点描述',
   create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
-  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除:0 正常 1 已删'
+  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除:0 正常 1 已删',
+  KEY idx_kp_course (course_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='知识点表';
 
 -- 试题表
@@ -242,7 +263,8 @@ CREATE TABLE exam_paper (
   questions TEXT NOT NULL COMMENT '题目列表(JSON 格式 question_id 数组)',
   create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
   deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除:0 正常 1 已删',
-  UNIQUE KEY uk_exam_student (exam_id, student_id)
+  UNIQUE KEY uk_exam_student (exam_id, student_id),
+  KEY idx_paper_exam (exam_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='试卷表';
 
 -- 考试记录表
@@ -268,7 +290,8 @@ CREATE TABLE exam_answer (
   is_correct TINYINT DEFAULT NULL COMMENT '是否正确:0 错 1 对',
   score INT DEFAULT 0 COMMENT '得分',
   create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
-  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除:0 正常 1 已删'
+  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除:0 正常 1 已删',
+  KEY idx_answer_record (record_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='答卷记录表';
 
 -- 培训计划表
@@ -290,7 +313,9 @@ CREATE TABLE plan_course (
   sort_order INT DEFAULT 0 COMMENT '学习顺序',
   is_required TINYINT DEFAULT 1 COMMENT '是否必修:0 否 1 是',
   create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
-  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除:0 正常 1 已删'
+  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除:0 正常 1 已删',
+  KEY idx_plan_course_plan (plan_id),
+  KEY idx_plan_course_course (course_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='计划关联课程表';
 
 -- 知识库表
@@ -314,7 +339,8 @@ CREATE TABLE consult_record (
   is_auto TINYINT DEFAULT 1 COMMENT '类型:1 智能回答 2 人工回答 0 待处理',
   create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
   reply_time DATETIME COMMENT '回复时间(用于 SLA 统计)',
-  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除:0 正常 1 已删'
+  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除:0 正常 1 已删',
+  KEY idx_consult_student (student_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='咨询记录表';
 
 -- 资源文件表
@@ -327,7 +353,8 @@ CREATE TABLE resource_file (
   file_size BIGINT DEFAULT 0 COMMENT '文件大小(字节)',
   uploader_id BIGINT COMMENT '上传者ID',
   create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
-  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除:0 正常 1 已删'
+  deleted TINYINT NOT NULL DEFAULT 0 COMMENT '逻辑删除:0 正常 1 已删',
+  KEY idx_resource_course (course_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='资源文件表';
 
 
@@ -376,42 +403,23 @@ INSERT INTO sys_permission (id,perm_code,perm_name,description,module,create_tim
 (19,'teacher:write','讲师编辑','新增/修改/删除讲师','teacher','2026-07-09 00:00:00',0),
 (20,'resource:read','资源查看','资源列表/详情可见','resource','2026-07-09 00:00:00',0);
 
--- 角色-权限绑定:ADMIN 全 20,TEACHER 课程+章节+知识+题目+考试+咨询+计划(13),STUDENT 仅 course/read + exam/read
+-- 角色-权限绑定 v1.2.1: ADMIN 20 / TEACHER 17 / STUDENT 10 = 47 条
+-- TEACHER: 课程+章节+知识+题目+考试+咨询+计划+讲师+资源+统计 (无 user 管理)
+-- STUDENT: 只读 + consult:write (提问) + resource (下载)
 INSERT INTO sys_role_permission (role_id,permission_id,create_time) VALUES
-(1,1,'2026-07-09 00:00:00'),
-(1,2,'2026-07-09 00:00:00'),
-(1,3,'2026-07-09 00:00:00'),
-(1,4,'2026-07-09 00:00:00'),
-(1,5,'2026-07-09 00:00:00'),
-(1,6,'2026-07-09 00:00:00'),
-(1,7,'2026-07-09 00:00:00'),
-(1,8,'2026-07-09 00:00:00'),
-(1,9,'2026-07-09 00:00:00'),
-(1,10,'2026-07-09 00:00:00'),
-(1,11,'2026-07-09 00:00:00'),
-(1,12,'2026-07-09 00:00:00'),
-(1,13,'2026-07-09 00:00:00'),
-(1,14,'2026-07-09 00:00:00'),
-(1,15,'2026-07-09 00:00:00'),
-(1,16,'2026-07-09 00:00:00'),
-(1,17,'2026-07-09 00:00:00'),
-(1,18,'2026-07-09 00:00:00'),
-(1,19,'2026-07-09 00:00:00'),
-(1,20,'2026-07-09 00:00:00'),
-(2,1,'2026-07-09 00:00:00'),
-(2,2,'2026-07-09 00:00:00'),
-(2,3,'2026-07-09 00:00:00'),
-(2,4,'2026-07-09 00:00:00'),
-(2,5,'2026-07-09 00:00:00'),
-(2,6,'2026-07-09 00:00:00'),
-(2,7,'2026-07-09 00:00:00'),
-(2,8,'2026-07-09 00:00:00'),
-(2,9,'2026-07-09 00:00:00'),
-(2,10,'2026-07-09 00:00:00'),
-(2,16,'2026-07-09 00:00:00'),
-(2,17,'2026-07-09 00:00:00'),
-(3,1,'2026-07-09 00:00:00'),
-(3,9,'2026-07-09 00:00:00');
+-- ADMIN: 全 20 条
+(1,1,'2026-07-09 00:00:00'),(1,2,'2026-07-09 00:00:00'),(1,3,'2026-07-09 00:00:00'),(1,4,'2026-07-09 00:00:00'),(1,5,'2026-07-09 00:00:00'),
+(1,6,'2026-07-09 00:00:00'),(1,7,'2026-07-09 00:00:00'),(1,8,'2026-07-09 00:00:00'),(1,9,'2026-07-09 00:00:00'),(1,10,'2026-07-09 00:00:00'),
+(1,11,'2026-07-09 00:00:00'),(1,12,'2026-07-09 00:00:00'),(1,13,'2026-07-09 00:00:00'),(1,14,'2026-07-09 00:00:00'),(1,15,'2026-07-09 00:00:00'),
+(1,16,'2026-07-09 00:00:00'),(1,17,'2026-07-09 00:00:00'),(1,18,'2026-07-09 00:00:00'),(1,19,'2026-07-09 00:00:00'),(1,20,'2026-07-09 00:00:00'),
+-- TEACHER: 17 条 (1-13 + 16,17,18,20)
+(2,1,'2026-07-09 00:00:00'),(2,2,'2026-07-09 00:00:00'),(2,3,'2026-07-09 00:00:00'),(2,4,'2026-07-09 00:00:00'),(2,5,'2026-07-09 00:00:00'),
+(2,6,'2026-07-09 00:00:00'),(2,7,'2026-07-09 00:00:00'),(2,8,'2026-07-09 00:00:00'),(2,9,'2026-07-09 00:00:00'),(2,10,'2026-07-09 00:00:00'),
+(2,11,'2026-07-09 00:00:00'),(2,12,'2026-07-09 00:00:00'),(2,13,'2026-07-09 00:00:00'),
+(2,16,'2026-07-09 00:00:00'),(2,17,'2026-07-09 00:00:00'),(2,18,'2026-07-09 00:00:00'),(2,20,'2026-07-09 00:00:00'),
+-- STUDENT: 10 条 (1,3,5,7,9,11,12,13,16,20)
+(3,1,'2026-07-09 00:00:00'),(3,3,'2026-07-09 00:00:00'),(3,5,'2026-07-09 00:00:00'),(3,7,'2026-07-09 00:00:00'),(3,9,'2026-07-09 00:00:00'),
+(3,11,'2026-07-09 00:00:00'),(3,12,'2026-07-09 00:00:00'),(3,13,'2026-07-09 00:00:00'),(3,16,'2026-07-09 00:00:00'),(3,20,'2026-07-09 00:00:00');
 
 -- 讲师数据
 INSERT INTO teacher (id,user_id,real_name,title,education,direction,intro,create_time,deleted) VALUES
@@ -451,7 +459,7 @@ INSERT INTO question (id,course_id,knowledge_point_id,title,question_type,option
 (6,3,4,'居民健康档案的规范服务内容包含哪些',2,'["A. 健康评估","B. 健康教育","C. 慢病管理","D. 以上全部"]','D',3,2,'2026-07-09 00:00:00',0),
 (7,3,5,'心脏骤停的黄金抢救时间是 4 分钟内',3,'["正确","错误"]','正确',2,1,'2026-07-09 00:00:00',0),
 (8,3,5,'成人心肺复苏的按压频率是（）次/分',4,'','100-120',3,2,'2026-07-09 00:00:00',0),
-(9,1,1,'高血压的诊断标准是收缩压≥（）mmHg',1,'["A.120","B.130","C.140","D.150"]','C',2,1,'2026-07-09 00:00:00',0),
+(9,1,1,'高血压患者血压控制目标一般为＜（）mmHg',1,'["A. 130/85","B. 140/90","C. 150/95","D. 160/100"]','B',2,1,'2026-07-09 00:00:00',0),
 (10,1,1,'高血压的诊断标准是舒张压≥（）mmHg',1,'["A.80","B.90","C.100","D.110"]','B',2,1,'2026-07-09 00:00:00',0);
 
 -- 考试数据(3 场,含预组卷 question_ids)
@@ -513,5 +521,46 @@ INSERT INTO exam_answer (id,record_id,question_id,student_answer,is_correct,scor
 (8,1,8,'100-120',1,3,'2026-07-09 15:17:10',0),
 (9,1,9,'A',0,0,'2026-07-09 15:17:10',0),
 (10,1,10,'A',0,0,'2026-07-09 15:17:10',0);
+
+-- ============================================================
+-- v1.2.1 演示数据均衡化 (ECharts/联调素材)
+-- ============================================================
+
+-- course_enroll: student02-06 每人至少报名 1 门课程
+INSERT INTO course_enroll (student_id,course_id) VALUES
+(5,1),(5,2),   -- student02: 报名课程 1+2
+(6,1),(6,3),   -- student03: 报名课程 1+3
+(7,2),         -- student04: 报名课程 2
+(8,1),         -- student05: 报名课程 1
+(9,4);         -- student06: 报名课程 4
+
+-- study_record: 10 条学习记录用于 ECharts 进度展示
+INSERT INTO study_record (student_id,course_id,chapter_id,progress,study_duration,last_position,completed) VALUES
+(4,1,1, 100, 1800, 1800, 1),
+(4,1,2, 100, 2400, 2400, 1),
+(4,1,3,  60, 1200, 1200, 0),
+(4,2,4, 100, 1500, 1500, 1),
+(5,1,1, 100, 1700, 1700, 1),
+(5,1,2,  30,  720,  720, 0),
+(6,1,1, 100, 1800, 1800, 1),
+(6,3,5,  80, 1680, 1680, 0),
+(7,2,4,  50,  750,  750, 0),
+(8,1,1, 100, 1800, 1800, 1);
+
+-- exam_record: student02 进行中考试 (status=0 未提交 用于考试中心列表演示)
+INSERT INTO exam_record (id,student_id,exam_id,paper_id,score,status,start_time,submit_time) VALUES
+(2, 5, 2, NULL, 0, 0, '2026-07-09 16:00:00', NULL);
+
+-- consult_record: SLA 演示 (2 条已人工回复 reply_time <60 秒 + 1 条 is_auto=0 待处理)
+INSERT INTO consult_record (student_id,question,answer,is_auto,create_time,reply_time) VALUES
+(4,'如何重考不及格的考试?',
+   '登录后进入"考试中心"，找到不及格考试，若 max_retry 未用尽可点"重考"按钮。剩余重考次数以考试设置为准。',
+   2,'2026-07-09 09:00:00','2026-07-09 09:00:45'),
+(6,'离线课件下载后怎么观看?',
+   '进入"课程详情"页，点击"下载"保存 ZIP 包（仅 offline_filename 非空的课程支持），离线状态下仍可进入课程播放页',
+   2,'2026-07-09 10:30:00','2026-07-09 10:30:38'),
+(8,'少数民族语言课程什么时候上线?',
+   '目前平台已完成多语言接口预留，具体语言包上线以省卫健委公告为准。已转产品开发团队跟进。',
+   0,'2026-07-09 14:00:00',NULL);
 
 SET FOREIGN_KEY_CHECKS = 1;
