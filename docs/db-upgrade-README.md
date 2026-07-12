@@ -6,8 +6,8 @@
 
 | 文件 | 大小 | 用途 | 适用场景 |
 |------|------|------|----------|
-| `database.sql` | ~28 KB | **一体化初始化脚本**（17 张业务表 + 4 张 RBAC 表 + 9 个示例用户 + V2_1 修复） | **全新部署**（无数据） |
-| `db-upgrade-from-v1.sql` | ~7 KB | **增量升级脚本**（V2_0 RBAC + V2_1 schema 修复，幂等） | 已有 17 张业务表，**补齐 RBAC + V2_1** |
+| `database.sql` | ~28 KB | **一体化初始化脚本**（16 张业务表 + 4 张 RBAC 表 + 9 个示例用户 + V2_1 修复） | **全新部署**（无数据） |
+| `db-upgrade-from-v1.sql` | ~7 KB | **增量升级脚本**（V2_0 RBAC + V2_1 schema 修复，幂等） | 已有 16 张业务表，**补齐 RBAC + V2_1** |
 | `training-admin/src/main/resources/db/migration/V*.sql` | Flyway migration | Spring Boot 启动时自动执行 | **Flyway 接管**（生产推荐） |
 
 ---
@@ -23,20 +23,20 @@ mysql -uroot -proot training < docs/database.sql
 
 # 3) 验证
 mysql -uroot -proot training -e "SHOW TABLES;"
-# 期望: 20 张表 (17 业务 + 3 RBAC) + sys_user = 共 21 张
+# 期望: 20 张表 (16 业务 + 4 RBAC)
 
 # 4) 导入题库（可选，80 道示例题）
 mysql -uroot -proot training < docs/question-data-80.sql
 ```
 
-完成后重启 Spring Boot（端口 9898/9899）→ `RbacDataInitializer` 会自动建 3 个角色 + 25 条权限 + 角色权限关联。
+完成后重启 Spring Boot（端口 9898/9899）→ `RbacDataInitializer` 会自动建 3 个角色 + 20 条权限 + 角色权限关联。
 
 ---
 
 ## 场景 2：已有数据库，增量升级（你当前的情况）
 
 ```bash
-# 已有 17 张业务表（V1_0）但缺 RBAC 表 + V2_1 修复
+# 已有 16 张业务表（V1_0）但缺 RBAC 表 + V2_1 修复
 mysql -uroot -proot training < docs/db-upgrade-from-v1.sql
 ```
 
@@ -87,7 +87,7 @@ spring:
 跑完任意一种方案后，执行以下 SQL 确认：
 
 ```sql
--- 1) 表数量（应 ≥ 21）
+-- 1) 表数量（应 ≥ 20）
 SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = 'training';
 
 -- 2) V2_1 schema 修复（必须 YES + 1）
@@ -100,7 +100,7 @@ WHERE TABLE_SCHEMA = 'training'
 -- teacher  | user_id       | YES | NULL
 -- question | question_type | YES | 1
 
--- 3) V2_0 RBAC 表（应有 3 张）
+-- 3) V2_0 RBAC 表（应有 4 张）
 SHOW TABLES LIKE 'sys_%';
 
 -- 4) 角色数量（启动后应为 3）
@@ -145,6 +145,6 @@ SQL 开头有 `SET NAMES utf8mb4;` 一般不会乱码。如果乱码：
 
 | 版本 | 日期 | 变更 |
 |------|------|------|
-| v1.0.0 | 2026-07-07 | 初版 17 张业务表 |
+| v1.0.0 | 2026-07-07 | 初版 16 张业务表 |
 | v1.1.0 | 2026-07-09 | 加 RBAC 4 张表 + 9 个示例用户 + 培训数据 |
 | **v1.2.0** | **2026-07-12** | **teacher.user_id 允许 NULL + question.question_type 默认 1（M12 联调期修复）** |

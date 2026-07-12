@@ -1,8 +1,8 @@
 -- =============================================================
 -- V1_0__init.sql
--- 17 张业务表初始化（Flyway migration 形式）
+-- 16 张业务表 + 4 张 RBAC 表初始化（Flyway migration 形式）
 -- 日期: 2026-07-12
--- 说明: 历史数据库使用 docs/database.sql 一体化初始化（17+4 张表 + 示例数据），
+-- 说明: 历史数据库使用 docs/database.sql 一体化初始化（16+4 张表 + 示例数据），
 --       此文件仅作为 Flyway 自动管理 schema 演进时的 V1_0 baseline。
 --       若 flyway_schema_history 不存在且希望 Flyway 接管，
 --       可在 application.yml 配置 baseline-on-migrate: true。
@@ -19,10 +19,9 @@
 --   - 也不需要 Flyway
 --   - 增量更新请跑 docs/db-upgrade-from-v1.sql (V2_0 + V2_1)
 --
--- 字段说明:
---   本版本包含的 17 张业务表来自 docs/database.sql:
---     sys_user / course / course_chapter / chapter_resource
---     teacher / exam / exam_record / exam_answer
---     question / question_knowledge / train_plan / train_plan_course
---     study_progress / learning_note / consult / consult_reply
---     knowledge_point
+-- 表清单（16 业务 + 4 RBAC = 20 张，权威定义在 docs/database.sql）:
+--   RBAC: sys_user / sys_role / sys_permission / sys_role_permission
+--   业务: teacher / course / course_chapter / course_enroll / study_record
+--         knowledge_point / question / exam / exam_paper / exam_record
+--         exam_answer / train_plan / plan_course / knowledge_base
+--         consult_record / resource_file

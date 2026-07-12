@@ -4,11 +4,11 @@
 -- 日期: 2026-07-12
 --
 -- 适用场景:
---   已有运行中的 training 数据库 (17 张业务表已就绪)
+--   已有运行中的 training 数据库 (16 张业务表已就绪)
 --   需要补齐 RBAC 4 张权限表 + 应用 V2_1 schema 修复
 --
 -- 全新部署请用:
---   docs/database.sql (一体化 17+4 张表 + V2_1 修复)
+--   docs/database.sql (一体化 16+4 张表 + V2_1 修复)
 --
 -- 使用方法:
 --   mysql -uroot -proot training < docs/db-upgrade-from-v1.sql

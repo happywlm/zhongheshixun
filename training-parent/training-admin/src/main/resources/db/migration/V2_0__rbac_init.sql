@@ -55,7 +55,7 @@ CREATE TABLE IF NOT EXISTS sys_role_permission (
 -- 4. 改造 sys_user：加 role_id 列（允许 NULL 便于平滑迁移）
 -- -------------------------------------------------------------
 ALTER TABLE sys_user
-    ADD COLUMN role_id BIGINT DEFAULT NULL COMMENT 'FK -> sys_role.id' AFTER role;
+    ADD COLUMN role_id BIGINT DEFAULT NULL COMMENT 'FK -> sys_role.id' AFTER status;
 ALTER TABLE sys_user
     ADD KEY idx_role_id (role_id);
 
