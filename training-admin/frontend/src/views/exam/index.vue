@@ -28,6 +28,7 @@
           >
             <el-option label="草稿" :value="0" />
             <el-option label="已发布" :value="1" />
+            <el-option label="已下架" :value="2" />
           </el-select>
         </el-form-item>
         <el-form-item label="关键词">
@@ -97,6 +98,15 @@
               @click="handleOffline(row)"
             >
               下架
+            </el-button>
+            <el-button
+              v-else
+              type="warning"
+              link
+              :loading="row.__republishing"
+              @click="handleRepublish(row)"
+            >
+              重新上架
             </el-button>
             <el-button type="danger" link @click="handleDelete(row)">删除</el-button>
           </template>

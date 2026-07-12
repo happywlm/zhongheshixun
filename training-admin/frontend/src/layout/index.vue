@@ -53,7 +53,15 @@ const userStore = useUserStore()
 const menuItems = computed(() => {
   const layoutRoute = router.options.routes.find(r => r.path === '/')
   const children = (layoutRoute?.children || []) as RouteRecordRaw[]
-  return children.filter(c => c.meta?.title && !c.meta?.hidden)
+  const userRole = (userStore.userInfo?.role || '').toUpperCase()
+  return children.filter(c => {
+    if (!c.meta?.title || c.meta?.hidden) return false
+    // 非 ADMIN 角色隐藏用户管理和讲师管理
+    if (userRole !== 'ADMIN' && (c.path === 'users' || c.path === 'teachers')) {
+      return false
+    }
+    return true
+  })
 })
 
 async function onCommand(cmd: string) {

@@ -24,6 +24,10 @@
             <if test="direction != null and direction != ''">
                 AND direction LIKE CONCAT('%', #{direction}, '%')
             </if>
+            <if test="keyword != null and keyword != ''">
+                AND (real_name LIKE CONCAT('%', #{keyword}, '%')
+                     OR intro LIKE CONCAT('%', #{keyword}, '%'))
+            </if>
         </where>
         ORDER BY id DESC
     </select>

@@ -1,6 +1,4 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import { ElMessage } from 'element-plus'
-import { useUserStore } from '@/stores/user'
 
 const routes = [
   {
@@ -81,39 +79,6 @@ const routes = [
     component: () => import('@/views/profile/index.vue'),
     meta: { requiresAuth: true, title: '个人中心' },
   },
-  // P2: TEACHER 我的课程
-  {
-    path: '/my-courses',
-    name: 'MyCourses',
-    component: () => import('@/views/teacher/my-courses.vue'),
-    meta: {
-      requiresAuth: true,
-      title: '我的课程',
-      roleCode: 'TEACHER',
-    },
-  },
-  // P3: TEACHER 题库管理
-  {
-    path: '/question-bank',
-    name: 'QuestionBank',
-    component: () => import('@/views/teacher/question-bank.vue'),
-    meta: {
-      requiresAuth: true,
-      title: '题库管理',
-      roleCode: 'TEACHER',
-    },
-  },
-  // TEACHER 咨询回复（占位 + 引导管理后台）
-  {
-    path: '/consult-manage',
-    name: 'ConsultManage',
-    component: () => import('@/views/teacher/consult-manage.vue'),
-    meta: {
-      requiresAuth: true,
-      title: '咨询回复',
-      roleCode: 'TEACHER',
-    },
-  },
   // 兜底：未匹配路径跳首页
   {
     path: '/:pathMatch(.*)*',
@@ -129,7 +94,7 @@ const router = createRouter({
 // 路由守卫：
 // 1) 未登录跳 /login
 // 2) 已登录访问 /login 自动跳 /home
-// 3) RBAC：to.meta.roleCode 不为空且不等于当前用户 roleCode → 跳 /home + 警告
+// 3) TEACHER/ADMIN 角色不进入学员前台，引导去管理后台 5176
 router.beforeEach((to, from, next) => {
   const token = localStorage.getItem('token')
   if (to.meta.requiresAuth && !token) {
@@ -139,18 +104,6 @@ router.beforeEach((to, from, next) => {
   if (to.path === '/login' && token) {
     next('/home')
     return
-  }
-  // RBAC 角色校验：仅在已登录且路由声明 roleCode 时生效
-  const requiredRole = to.meta?.roleCode
-  if (token && requiredRole) {
-    // 从 store / localStorage 取当前用户 role（store 优先，因为可能已更新）
-    const userStore = useUserStore()
-    const currentRole = userStore.roleCode || ''
-    if (currentRole && currentRole !== requiredRole) {
-      ElMessage.warning(`当前账号角色（${currentRole || '未知'}）无权访问"${to.meta.title || to.path}"，已为您返回首页。`)
-      next('/home')
-      return
-    }
   }
   next()
 })

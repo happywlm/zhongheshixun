@@ -89,6 +89,7 @@ test_write.txt
 snapshot.json
 test-batch.json
 fix_plan.py
+.verify-tmp/
 fix_plan2.py
 fix_plan3.py
 fix_final.py

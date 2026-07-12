@@ -87,20 +87,23 @@ async function handleLogin() {
     loading.value = true
     try {
       const loginData = await userStore.login(form.value)
-      // P1: ADMIN 角色登录后提示去管理后台（3 秒后自动跳转）
       const role = loginData?.userInfo?.role || loginData?.userInfo?.roleCode || ''
-      if (role === 'ADMIN') {
+      // 教师和管理员引导去管理后台 5176
+      if (role === 'ADMIN' || role === 'TEACHER') {
+        const roleText = role === 'ADMIN' ? '管理员' : '讲师'
         ElMessage({
-          message: '管理员账号推荐使用管理后台（5176）获得完整体验，3 秒后自动跳转...',
+          message: `${roleText}账号请使用管理后台（5176）获得完整体验，3 秒后自动跳转...`,
           type: 'success',
           duration: 3000,
         })
         setTimeout(() => {
           window.open('http://localhost:5176', '_blank')
         }, 3000)
-      } else {
-        ElMessage.success('登录成功')
+        // 不进入学员前台，留在登录页
+        loading.value = false
+        return
       }
+      ElMessage.success('登录成功')
       router.push('/home')
     } catch (err) {
       if (err && err.code === 1002) {

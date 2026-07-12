@@ -18,7 +18,7 @@ public class TeacherServiceImpl extends ServiceImpl<TeacherMapper, Teacher> impl
     @Override
     public IPage<Teacher> page(TeacherPageQuery query) {
         Page<Teacher> page = new Page<>(query.getPageNum(), query.getPageSize());
-        return baseMapper.selectTeacherPage(page, query.getRealName(), query.getDirection());
+        return baseMapper.selectTeacherPage(page, query.getRealName(), query.getDirection(), query.getKeyword());
     }
 
     @Override

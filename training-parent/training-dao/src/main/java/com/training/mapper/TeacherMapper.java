@@ -17,5 +17,6 @@ public interface TeacherMapper extends BaseMapper<Teacher> {
      */
     IPage<Teacher> selectTeacherPage(IPage<Teacher> page,
                                      @Param("realName") String realName,
-                                     @Param("direction") String direction);
+                                     @Param("direction") String direction,
+                                     @Param("keyword") String keyword);
 }

@@ -14,22 +14,11 @@
         text-color="#fff"
         active-text-color="#1677ff"
       >
-        <!-- 6 个核心菜单：STUDENT / TEACHER / ADMIN 全部可见 -->
+        <!-- 6 个核心菜单：学员专用前台，所有登录用户可见 -->
         <el-menu-item v-for="m in coreMenus" :key="m.path" :index="m.path">
           <el-icon><component :is="m.icon" /></el-icon>
           <span>{{ m.title }}</span>
         </el-menu-item>
-
-        <!-- TEACHER 专属：教学扩展菜单（与 6 个核心菜单并列追加） -->
-        <template v-if="isTeacher">
-          <div class="main-layout__menu-divider">
-            <span>教学管理</span>
-          </div>
-          <el-menu-item v-for="m in teacherMenus" :key="m.path" :index="m.path">
-            <el-icon><component :is="m.icon" /></el-icon>
-            <span>{{ m.title }}</span>
-          </el-menu-item>
-        </template>
       </el-menu>
     </el-aside>
 
@@ -38,17 +27,6 @@
       <el-header class="main-layout__header">
         <div class="main-layout__header-title">{{ pageTitle }}</div>
         <div class="main-layout__header-actions">
-          <!-- P1: ADMIN 专属按钮，跳转管理后台 5176 -->
-          <el-button
-            v-if="isAdmin"
-            type="primary"
-            size="small"
-            class="main-layout__admin-btn"
-            @click="goAdmin"
-          >
-            <el-icon style="margin-right:4px"><Setting /></el-icon>
-            进入管理后台
-          </el-button>
           <el-dropdown @command="handleCommand">
             <span class="main-layout__header-user">
               <el-avatar :size="32" class="main-layout__header-avatar">
@@ -71,9 +49,6 @@
             <template #dropdown>
               <el-dropdown-menu>
                 <el-dropdown-item command="profile">个人中心</el-dropdown-item>
-                <el-dropdown-item v-if="isAdmin" command="admin" divided>
-                  进入管理后台
-                </el-dropdown-item>
                 <el-dropdown-item command="logout" divided>退出登录</el-dropdown-item>
               </el-dropdown-menu>
             </template>
@@ -100,10 +75,6 @@ import {
   ChatDotRound,
   User,
   ArrowDown,
-  Setting,
-  Notebook,
-  Collection,
-  Headset,
 } from '@element-plus/icons-vue'
 import { useUserStore } from '@/stores/user'
 
@@ -111,25 +82,22 @@ const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
 
-// RBAC 角色判断
-const isStudent = computed(() => userStore.roleCode === 'STUDENT')
-const isTeacher = computed(() => userStore.roleCode === 'TEACHER')
-const isAdmin = computed(() => userStore.roleCode === 'ADMIN')
-
 // 角色显示文案与 el-tag 类型（顶部 Badge 视觉提示）
 const roleBadge = computed(() => {
-  if (isAdmin.value) return '管理员'
-  if (isTeacher.value) return '讲师'
-  if (isStudent.value) return '学员'
+  const r = userStore.roleCode || ''
+  if (r === 'ADMIN') return '管理员'
+  if (r === 'TEACHER') return '讲师'
+  if (r === 'STUDENT') return '学员'
   return ''
 })
 const roleBadgeType = computed(() => {
-  if (isAdmin.value) return 'danger'
-  if (isTeacher.value) return 'warning'
+  const r = userStore.roleCode || ''
+  if (r === 'ADMIN') return 'danger'
+  if (r === 'TEACHER') return 'warning'
   return 'success'
 })
 
-// 6 个核心菜单：所有角色共有
+// 6 个核心菜单：学员专用前台
 const coreMenus = [
   { path: '/home', title: '首页', icon: House },
   { path: '/courses', title: '课程中心', icon: Reading },
@@ -139,31 +107,11 @@ const coreMenus = [
   { path: '/profile', title: '个人中心', icon: User },
 ]
 
-// TEACHER 专属教学菜单
-const teacherMenus = [
-  { path: '/my-courses', title: '我的课程', icon: Notebook },
-  { path: '/question-bank', title: '题库管理', icon: Collection },
-  { path: '/consult-manage', title: '咨询回复', icon: Headset },
-]
-
-// 合并用于 activeMenu 路径前缀匹配（core + teacher）
-const allMenuPaths = computed(() => [
-  ...coreMenus.map((m) => m.path),
-  ...(isTeacher.value ? teacherMenus.map((m) => m.path) : []),
-])
-
-/**
- * 侧栏菜单高亮：支持子路径匹配
- *  - /home 严格匹配自身（避免误匹配其他以 /home 开头的路径）
- *  - 其它路径走 startsWith 匹配最长前缀
- */
 const activeMenu = computed(() => {
   const path = route.path
-  const items = allMenuPaths.value
-  // 1) 完全匹配优先
+  const items = coreMenus.map((m) => m.path)
   const exact = items.find((m) => m === path)
   if (exact) return exact
-  // 2) startsWith 匹配最长前缀
   const candidates = items
     .filter((m) => m !== '/home' && path.startsWith(m))
     .sort((a, b) => b.length - a.length)
@@ -172,19 +120,11 @@ const activeMenu = computed(() => {
 
 const pageTitle = computed(() => route.meta.title || '')
 
-// P1: ADMIN 跳转管理后台
-function goAdmin() {
-  window.open('http://localhost:5176', '_blank')
-}
-
 async function handleCommand(cmd) {
   if (cmd === 'profile') {
     router.push('/profile')
-  } else if (cmd === 'admin') {
-    goAdmin()
   } else if (cmd === 'logout') {
     try {
-      // 确认弹窗；用户取消时会 reject，需 try/catch 兜底，避免未捕获异常
       await ElMessageBox.confirm('确定要退出登录吗？', '提示', {
         type: 'warning',
         confirmButtonText: '确定',

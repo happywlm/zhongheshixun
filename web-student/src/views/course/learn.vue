@@ -152,7 +152,7 @@ function mergeProgress() {
     const p = progressList.value.find((pr) => pr.chapterId === ch.id)
     return {
       ...ch,
-      finished: p?.finished ?? false,
+      finished: p?.completed === 1 || p?.completed === true,
       progress: p?.progress ?? 0,
     }
   })
@@ -180,7 +180,7 @@ async function markFinished() {
       courseId,
       chapterId: activeChapterId.value,
       progress: 100,
-      finished: true,
+      completed: true,
     })
     ElMessage.success('已标记为学完')
     // 更新本地状态

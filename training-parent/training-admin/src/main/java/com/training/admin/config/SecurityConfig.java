@@ -58,12 +58,16 @@ public class SecurityConfig {
                                 "/swagger-ui/**",
                                 "/v3/api-docs/**"
                         ).permitAll()
-                        // M12 修复：讲师 P2/P3 跳 5176 后可以查看教学相关路径（只读 + 自身范围）
-                        // 允许 TEACHER 角色访问教学模块
-                        .antMatchers("/admin/course", "/admin/course/page", "/admin/course/{id}").hasAnyRole("ADMIN", "TEACHER")
-                        .antMatchers("/admin/question", "/admin/question/page", "/admin/question/{id}").hasAnyRole("ADMIN", "TEACHER")
-                        .antMatchers("/admin/consult", "/admin/consult/page", "/admin/consult/sla-alert").hasAnyRole("ADMIN", "TEACHER")
-                        // 其他后台路径要求 ADMIN 角色
+                        // 教学完整版：TEACHER 可访问课程/章节/知识点/试题/考试/培训计划/咨询/统计 8 个模块
+                        .antMatchers("/admin/course/**").hasAnyRole("ADMIN", "TEACHER")
+                        .antMatchers("/admin/chapter/**").hasAnyRole("ADMIN", "TEACHER")
+                        .antMatchers("/admin/knowledge/**").hasAnyRole("ADMIN", "TEACHER")
+                        .antMatchers("/admin/question/**").hasAnyRole("ADMIN", "TEACHER")
+                        .antMatchers("/admin/exam/**").hasAnyRole("ADMIN", "TEACHER")
+                        .antMatchers("/admin/plan/**").hasAnyRole("ADMIN", "TEACHER")
+                        .antMatchers("/admin/consult/**").hasAnyRole("ADMIN", "TEACHER")
+                        .antMatchers("/admin/stats/**").hasAnyRole("ADMIN", "TEACHER")
+                        // 用户管理、讲师管理等其他后台路径要求 ADMIN 角色
                         .antMatchers("/admin/**").hasRole("ADMIN")
                         // 其他路径需认证
                         .anyRequest().authenticated()

@@ -168,7 +168,7 @@ function mergeChapterProgress() {
     const p = progressList.value.find((pr) => pr.chapterId === ch.id)
     return {
       ...ch,
-      finished: p?.finished ?? false,
+      finished: p?.completed === 1 || p?.completed === true,
       progress: p?.progress ?? 0,
     }
   })

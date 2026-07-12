@@ -76,7 +76,7 @@ mysql -u root -p
 # 执行初始化脚本
 source docs/database.sql
 
-# 验证（应看到 17 张表）
+# 验证（应看到 20 张表：17 张业务表 + 3 张 RBAC 表）
 show databases;
 use training;
 show tables;

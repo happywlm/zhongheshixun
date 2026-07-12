@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="user-page">
     <!-- 筛选区 -->
     <el-card shadow="never" class="filter-card">
@@ -215,15 +215,9 @@ const buildFormRules = (isEdit: boolean): FormRules => ({
 
 const formRules = ref<FormRules>(buildFormRules(false))
 
-const roleText = (role: string) => {
-  const map: Record<string, string> = { admin: '管理员', teacher: '教师', student: '学员' }
-  return map[(role || '').toLowerCase()] || '-'
-}
+const roleText = (role: string) => { const map: Record<string, string> = { admin: '管理员', teacher: '教师', student: '学员' }; return map[(role || '').toLowerCase()] || '-' }
 
-const roleTag = (role: string) => {
-  const map: Record<string, string> = { admin: 'danger', teacher: 'warning', student: 'success' }
-  return map[(role || '').toLowerCase()] || ''
-}
+const roleTag = (role: string) => { const map: Record<string, string> = { admin: 'danger', teacher: 'warning', student: 'success' }; return map[(role || '').toLowerCase()] || '' }
 
 async function fetchList() {
   loading.value = true

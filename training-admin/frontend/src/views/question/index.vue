@@ -478,7 +478,7 @@ async function handleSubmit() {
         ElMessage.warning('请填写所有选项内容')
         return
       }
-      if (!formData.answer) {
+      if (formData.questionType === 1 && !formData.answer) {
         ElMessage.warning('请选择标准答案')
         return
       }
@@ -488,7 +488,13 @@ async function handleSubmit() {
     submitting.value = true
     try {
       const submitData = { ...formData }
+      // 多选题：答案来自 multiAnswer（需先于下面校验写入 submitData.answer，否则校验读到空值）
       if (formData.questionType === 2) {
+        if (!multiAnswer.value || multiAnswer.value.length === 0) {
+          ElMessage.warning('请选择标准答案')
+          submitting.value = false
+          return
+        }
         submitData.answer = multiAnswer.value.join(',')
         submitData.options = JSON.stringify(optionList.value)
       }

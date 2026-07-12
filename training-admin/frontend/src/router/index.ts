@@ -105,7 +105,13 @@ router.beforeEach((to, _from, next) => {
   } else if (!userStore.token) {
     next('/login')
   } else {
-    next()
+    // 非 ADMIN 角色禁止直接访问用户管理和讲师管理
+    const userRole = (userStore.userInfo?.role || '').toUpperCase()
+    if (userRole !== 'ADMIN' && (to.path === '/users' || to.path === '/teachers')) {
+      next('/dashboard')
+    } else {
+      next()
+    }
   }
 })
 
