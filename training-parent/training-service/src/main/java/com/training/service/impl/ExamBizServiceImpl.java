@@ -453,26 +453,30 @@ public class ExamBizServiceImpl implements ExamBizService {
         }
 
         // 6. 更新考试记录
-        record.setScore(earnedScore);
+        // [百分制改造] 统一采用 0-100 百分制得分，与 exam.passScore（百分比）语义对齐
+        // 8 题答对 2 题 = 25 分（2/8 * 100），避免绝对分与百分比及格线错配
+        int percentScore = totalScore > 0
+                ? (int) Math.round((double) earnedScore / totalScore * 100)
+                : 0;
+        record.setScore(percentScore);
         record.setStatus(2); // 已批阅
         record.setSubmitTime(now);
         examRecordMapper.updateById(record);
 
-        // 7. 组装返回
+        // 7. 组装返回（统一百分制：满分 100，得分 0-100）
         ExamResultVO vo = new ExamResultVO();
-        vo.setScore(earnedScore);
-        vo.setTotalScore(totalScore);
-        // passScore 为百分比（如 60 表示 60%），需按实际得分比例判定
+        vo.setScore(percentScore);
+        vo.setTotalScore(100);
+        // passScore 为百分比（如 60 表示 60%），直接与百分制得分比较
         int passScore = exam != null && exam.getPassScore() != null ? exam.getPassScore() : 60;
-        double percentScore = totalScore > 0 ? (double) earnedScore / totalScore * 100 : 0.0;
         vo.setPassed(percentScore >= passScore);
         vo.setCorrectCount(correctCount);
         vo.setWrongCount(wrongCount);
-        double rate = totalScore > 0 ? (double) earnedScore / totalScore * 100 : 0.0;
-        vo.setCorrectRate(Math.round(rate * 100.0) / 100.0);
+        // correctRate 已是 0-100 百分比（与 score 同语义）
+        vo.setCorrectRate((double) percentScore);
 
-        log.info("学员 {} 提交考试 {}：得分={}/{}, 答对={}, 答错={}, 及格={}",
-                studentId, examId, earnedScore, totalScore, correctCount, wrongCount, vo.getPassed());
+        log.info("学员 {} 提交考试 {}：百分制得分={}/100 (原始 {}/{}), 答对={}, 答错={}, 及格={}",
+                studentId, examId, percentScore, earnedScore, totalScore, correctCount, wrongCount, vo.getPassed());
         return vo;
     }
 
@@ -668,7 +672,8 @@ public class ExamBizServiceImpl implements ExamBizService {
             vo.setExamType(exam.getExamType());
             vo.setCourseId(exam.getCourseId());
             vo.setPlanId(exam.getPlanId());
-            vo.setTotalScore(exam.getTotalScore());
+            // [百分制改造] 列表展示统一为 100 分制，与 passScore（百分比）语义对齐
+            vo.setTotalScore(100);
             vo.setPassScore(exam.getPassScore());
             vo.setDuration(exam.getDuration());
             vo.setMaxRetry(exam.getMaxRetry());

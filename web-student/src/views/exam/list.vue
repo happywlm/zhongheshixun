@@ -22,8 +22,8 @@
               <div class="exam-card__info">
                 <div>📝 题目数：{{ exam.questionCount ?? '-' }}</div>
                 <div>⏱ 考试时长：{{ exam.duration ?? '-' }} 分钟</div>
-                <div>📊 总分：{{ exam.totalScore ?? '-' }}</div>
-                <div>✅ 及格分：{{ exam.passScore ?? '-' }}</div>
+                <div>📊 总分：{{ exam.totalScore ?? '-' }} 分（百分制）</div>
+                <div>✅ 及格分：{{ exam.passScore ?? '-' }}%</div>
               </div>
               <el-button
                 v-if="canStart(exam)"

@@ -33,7 +33,7 @@
           <div class="exam-result-page__score">
             <el-statistic title="我的得分" :value="record.score ?? 0" />
             <el-statistic title="满分" :value="record.totalScore ?? 0" />
-            <el-statistic title="正确率" :value="(record.correctRate ? (record.correctRate * 100).toFixed(0) : 0)" suffix="%" />
+            <el-statistic title="正确率" :value="record.correctRate ? Number(record.correctRate).toFixed(0) : 0" suffix="%" />
           </div>
 
           <div class="exam-result-page__breakdown">
