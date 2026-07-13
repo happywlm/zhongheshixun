@@ -85,7 +85,7 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted, computed } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { startExam, submitExam } from '@/api/exam'
 import { questionTypeText, questionTypeColor, parseOptions } from '@/utils/dict'
@@ -215,6 +215,25 @@ async function doSubmit() {
     submitting.value = false
   }
 }
+
+// 路由离开守卫：考试进行中切换页面时提示
+onBeforeRouteLeave(async (to, from, next) => {
+  if (submitting.value) {
+    // 已交卷，直接放行
+    next()
+    return
+  }
+  try {
+    await ElMessageBox.confirm(
+      '考试进行中，离开页面将不保存当前答题进度（但考试记录仍保留，可从列表"继续考试"重新进入）。确定要离开吗？',
+      '提示',
+      { type: 'warning', confirmButtonText: '确定离开', cancelButtonText: '继续考试' }
+    )
+    next()
+  } catch (e) {
+    next(false)
+  }
+})
 
 onMounted(fetchExam)
 onUnmounted(() => {

@@ -19,12 +19,12 @@ export function difficultyText(d) {
   return { 1: '初级', 2: '中级', 3: '高级' }[d] || '-'
 }
 
-// 考试记录状态：0-未开始 1-已完成 2-已批阅
+// 考试记录状态：0-未开始 1-进行中 2-已批阅
 export function statusText(s) {
-  return { 0: '未开始', 1: '已完成', 2: '已批阅' }[s] ?? '未知'
+  return { 0: '未开始', 1: '进行中', 2: '已批阅' }[s] ?? '未知'
 }
 export function statusColor(s) {
-  return { 0: 'info', 1: 'success', 2: 'primary' }[s] ?? ''
+  return { 0: 'info', 1: 'warning', 2: 'primary' }[s] ?? ''
 }
 
 // 题目类型：1-单选 2-多选 3-判断 4-填空

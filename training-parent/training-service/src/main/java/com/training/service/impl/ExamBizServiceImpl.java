@@ -188,8 +188,83 @@ public class ExamBizServiceImpl implements ExamBizService {
             }
         }
 
-        // 5. 创建考试记录（进行中）
-        ExamRecord record = new ExamRecord();
+        // 5. [状态机修复] 检查是否有进行中记录（status=0），决定复用 / 视为放弃 / 新建
+        ExamRecord record = examRecordMapper.selectOne(
+                new LambdaQueryWrapper<ExamRecord>()
+                        .eq(ExamRecord::getStudentId, studentId)
+                        .eq(ExamRecord::getExamId, examId)
+                        .eq(ExamRecord::getStatus, 0)
+                        .orderByDesc(ExamRecord::getCreateTime)
+                        .last("LIMIT 1")
+        );
+
+        if (record != null) {
+            // 计算是否已超时：start_time + duration 分钟 > now 表示未超时
+            int durationMin = exam.getDuration() != null ? exam.getDuration() : 60;
+            LocalDateTime deadline = record.getStartTime() != null
+                    ? record.getStartTime().plusMinutes(durationMin)
+                    : null;
+
+            if (deadline != null && deadline.isAfter(now)) {
+                // 未超时：复用进行中记录，用其 paperId 重新加载题目（防止 paper 被换）
+                ExamPaper reusePaper = examPaperMapper.selectById(record.getPaperId());
+                if (reusePaper == null) {
+                    throw new BusinessException(ResultCode.SERVER_ERROR.getCode(),
+                            "进行中记录对应的试卷不存在：paperId=" + record.getPaperId());
+                }
+                List<Long> reuseQuestionIds;
+                try {
+                    reuseQuestionIds = OBJECT_MAPPER.readValue(reusePaper.getQuestions(),
+                            new TypeReference<List<Long>>() {});
+                } catch (Exception e) {
+                    throw new BusinessException(ResultCode.SERVER_ERROR.getCode(), "试卷反序列化失败");
+                }
+
+                // 加载题目（不含答案）
+                List<Question> reuseQuestions = questionMapper.selectBatchIds(reuseQuestionIds);
+                Map<Long, Question> reuseQuestionMap = reuseQuestions.stream()
+                        .collect(Collectors.toMap(Question::getId, q -> q));
+                List<PaperQuestionVO> reuseQuestionVOs = new ArrayList<>();
+                for (Long qid : reuseQuestionIds) {
+                    Question q = reuseQuestionMap.get(qid);
+                    if (q == null) continue;
+                    PaperQuestionVO pqvo = new PaperQuestionVO();
+                    pqvo.setId(q.getId());
+                    pqvo.setTitle(q.getTitle());
+                    pqvo.setQuestionType(q.getQuestionType());
+                    pqvo.setOptions(q.getOptions());
+                    pqvo.setScore(q.getScore());
+                    reuseQuestionVOs.add(pqvo);
+                }
+
+                // 组装返回（与原返回结构完全一致）
+                ExamStartVO reuseVo = new ExamStartVO();
+                reuseVo.setExamId(examId);
+                reuseVo.setTitle(exam.getTitle());
+                reuseVo.setDuration(exam.getDuration());
+                reuseVo.setTotalScore(exam.getTotalScore());
+                reuseVo.setPassScore(exam.getPassScore());
+                reuseVo.setQuestions(reuseQuestionVOs);
+                reuseVo.setStartTime(record.getStartTime());
+                reuseVo.setServerTime(now);
+
+                log.info("学员 {} 复用进行中考试记录 {}，examId={}, paperId={}, startTime={}",
+                        studentId, record.getId(), examId, record.getPaperId(), record.getStartTime());
+                return reuseVo;
+            } else {
+                // 已超时：把旧记录标记为 status=2（视为放弃，得分 0），然后创建新记录
+                record.setStatus(2);
+                record.setScore(0);
+                record.setSubmitTime(now);
+                examRecordMapper.updateById(record);
+                log.info("学员 {} 进行中考试记录 {} 已超时，标记为放弃 status=2，将创建新记录",
+                        studentId, record.getId());
+                record = null; // 清空，下面新建
+            }
+        }
+
+        // 6. 创建考试记录（进行中）— 无进行中记录或旧记录已超时放弃
+        record = new ExamRecord();
         record.setStudentId(studentId);
         record.setExamId(examId);
         record.setPaperId(paper.getId());
@@ -198,7 +273,7 @@ public class ExamBizServiceImpl implements ExamBizService {
         record.setStartTime(now);
         examRecordMapper.insert(record);
 
-        // 6. 加载题目（不含答案）
+        // 7. 加载题目（不含答案）
         List<Question> questions = questionMapper.selectBatchIds(questionIds);
         Map<Long, Question> questionMap = questions.stream()
                 .collect(Collectors.toMap(Question::getId, q -> q));
@@ -216,7 +291,7 @@ public class ExamBizServiceImpl implements ExamBizService {
             questionVOs.add(vo);
         }
 
-        // 7. 组装返回
+        // 8. 组装返回
         ExamStartVO vo = new ExamStartVO();
         vo.setExamId(examId);
         vo.setTitle(exam.getTitle());
@@ -607,7 +682,12 @@ public class ExamBizServiceImpl implements ExamBizService {
             vo.setTimes(times);
 
             int maxRetry = exam.getMaxRetry() != null ? exam.getMaxRetry() : 0;
-            vo.setRetryLeft(Math.max(0, maxRetry - times));
+            // [状态机修复] retryLeft 只统计已批阅（status=2）的记录数，
+            // 进行中（status=0）记录不应占用重考次数（学生放弃/超时后会标记为 status=2）
+            int finishedCount = (int) records.stream()
+                    .filter(r -> r.getStatus() != null && r.getStatus() == 2)
+                    .count();
+            vo.setRetryLeft(Math.max(0, maxRetry - finishedCount));
 
             if (records.isEmpty()) {
                 // 未开始

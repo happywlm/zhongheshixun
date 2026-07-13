@@ -4,8 +4,10 @@ import com.training.common.dto.ExamSubmitDTO;
 import com.training.common.entity.Exam;
 import com.training.common.entity.ExamAnswer;
 import com.training.common.entity.ExamRecord;
+import com.training.common.exception.BusinessException;
 import com.training.common.result.PageResult;
 import com.training.common.result.Result;
+import com.training.common.result.ResultCode;
 import com.training.common.vo.ExamListVO;
 import com.training.common.vo.ExamResultVO;
 import com.training.common.vo.ExamStartVO;
@@ -145,6 +147,13 @@ public class ExamApiController {
         if (record == null) {
             log.info("M12 exam/result userId={} examId={} 无考试记录，返回空 vo", userId, examId);
             return Result.success(vo);
+        }
+
+        // [状态机修复] 仅已批阅（status=2）的记录可查看成绩；
+        // 进行中（status=0）或已提交待批阅的记录不允许查看成绩
+        if (record.getStatus() == null || record.getStatus() != 2) {
+            throw new BusinessException(ResultCode.BUSINESS_ERROR.getCode(),
+                    "考试尚未提交，无法查看成绩");
         }
 
         // 4) 聚合答题详情

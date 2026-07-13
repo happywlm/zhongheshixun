@@ -5,7 +5,7 @@
       <el-tabs v-model="activeTab" @tab-change="handleTabChange">
         <el-tab-pane label="全部" name="" />
         <el-tab-pane label="未开始" name="0" />
-        <el-tab-pane label="已完成" name="1" />
+        <el-tab-pane label="进行中" name="1" />
         <el-tab-pane label="已批阅" name="2" />
       </el-tabs>
 
@@ -34,7 +34,15 @@
                 开始考试
               </el-button>
               <el-button
-                v-else-if="exam.status === 1 || exam.status === 2"
+                v-else-if="exam.status === 1"
+                type="warning"
+                class="exam-card__btn"
+                @click="handleStart(exam)"
+              >
+                继续考试
+              </el-button>
+              <el-button
+                v-else-if="exam.status === 2"
                 type="success"
                 class="exam-card__btn"
                 @click="router.push(`/exams/${exam.id}/result`)"
@@ -42,7 +50,7 @@
                 查看成绩
               </el-button>
               <el-button
-                v-else-if="exam.status === 0"
+                v-else
                 class="exam-card__btn"
                 disabled
               >
@@ -88,9 +96,11 @@ const query = ref({
   status: null,
 })
 
-// status 0 且剩余重考次数 > 0 可开始
+// status 0=未开始 / 1=进行中（但已无重考次数时也禁用）/ 2=已批阅
+// canStart: status=0 且剩余重考次数 > 0
+// 注：进行中（status=1）走"继续考试"按钮，不进 canStart
 // ⚠️ status 字段语义说明（2026-07-10 审计备注）：
-//   学员端 exam.status 是"学员维度"状态：0=未开始/1=进行中/2=已完成/3=已批阅
+//   学员端 exam.status 是"学员维度"状态：0=未开始/1=进行中/2=已批阅
 //   管理端 exam.status 是"管理员维度"状态：0=草稿/1=已发布/2=已下架
 //   两者字段名相同但语义不同，请勿与 admin/frontend/src/views/exam/index.vue 混淆
 function canStart(exam) {
