@@ -455,12 +455,14 @@ INSERT INTO course (id,title,description,teacher_id,course_type,total_hours,stat
 (4,'护理基础操作','护理基础操作规范',                      2,1,25,2,0,'https://picsum.photos/seed/course4/400/225','2026-07-09 00:00:00',0);
 
 -- 章节数据(5 行)
+-- video_url 使用公网可访问的免费示例 mp4（答辩演示用，无需本地文件）
+-- 微信开发者工具需勾选"详情 → 不校验合法域名"
 INSERT INTO course_chapter (id,course_id,title,sort_order,video_url,duration,create_time,deleted) VALUES
-(1,1,'第一章 常见病概述',             1,'/video/ch1-1.mp4',1800,'2026-07-09 00:00:00',0),
-(2,1,'第二章 诊断要点',               2,'/video/ch1-2.mp4',2400,'2026-07-09 00:00:00',0),
-(3,1,'第三章 治疗方案',               3,'/video/ch1-3.mp4',2000,'2026-07-09 00:00:00',0),
-(4,2,'第一章 公共卫生服务概述',       1,'/video/ch2-1.mp4',1500,'2026-07-09 00:00:00',0),
-(5,2,'第二章 慢病管理',               2,'/video/ch2-2.mp4',2100,'2026-07-09 00:00:00',0);
+(1,1,'第一章 常见病概述',             1,'https://www.w3schools.com/html/mov_bbb.mp4',1800,'2026-07-09 00:00:00',0),
+(2,1,'第二章 诊断要点',               2,'https://www.w3schools.com/html/movie.mp4',2400,'2026-07-09 00:00:00',0),
+(3,1,'第三章 治疗方案',               3,'https://media.w3.org/2010/05/sintel/trailer.mp4',2000,'2026-07-09 00:00:00',0),
+(4,2,'第一章 公共卫生服务概述',       1,'https://media.w3.org/2010/05/bunny/trailer.mp4',1500,'2026-07-09 00:00:00',0),
+(5,2,'第二章 慢病管理',               2,'https://media.w3.org/2010/05/bunny/movie.mp4',2100,'2026-07-09 00:00:00',0);
 
 -- 知识点数据(5 行)
 INSERT INTO knowledge_point (id,course_id,name,description,create_time,deleted) VALUES
