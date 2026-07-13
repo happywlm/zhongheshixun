@@ -12,14 +12,19 @@
   position: sticky;
   top: 0;
   z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
 }
 .search-input-wrap {
+  flex: 1;
   display: flex;
   align-items: center;
   background: var(--bg);
   border-radius: 999rpx;
   padding: 0 24rpx;
   height: 72rpx;
+  position: relative;
 }
 .search-icon {
   margin-right: 12rpx;
@@ -28,6 +33,26 @@
 .search-input {
   flex: 1;
   font-size: 28rpx;
+}
+.search-clear {
+  width: 36rpx;
+  height: 36rpx;
+  line-height: 36rpx;
+  text-align: center;
+  border-radius: 50%;
+  background: rgba(0,0,0,0.15);
+  color: #fff;
+  font-size: 22rpx;
+  margin-left: 8rpx;
+}
+.search-btn {
+  padding: 0 28rpx;
+  height: 72rpx;
+  line-height: 72rpx;
+  background: #1677ff;
+  color: #fff;
+  font-size: 28rpx;
+  border-radius: 999rpx;
 }
 
 /* 筛选标签 */

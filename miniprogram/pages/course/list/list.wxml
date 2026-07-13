@@ -8,8 +8,11 @@
              placeholder="搜索课程名称"
              confirm-type="search"
              bindsearch="onSearch"
+             bindinput="onSearchInput"
              value="{{keyword}}" />
+      <view wx:if="{{keyword}}" class="search-clear" catchtap="onClearKeyword">✕</view>
     </view>
+    <view class="search-btn" catchtap="onSearchClick">搜索</view>
   </view>
 
   <!-- 筛选标签 -->

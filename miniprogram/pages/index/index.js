@@ -6,12 +6,26 @@ const examApi = require('../../api/exam')
 // ============= 工具函数 =============
 
 // 计算某课程的整体进度（章节级），失败返回 0
+// 修复：分母必须是课程总章节数（不是已学章节数）
+// 旧实现：100 / p.length —— 3 章只学 1 章时返回 100%，错误
+// 新实现：100 / chapters.length —— 3 章只学 1 章时返回 33%，正确
 async function fetchOverallProgress(courseId) {
   try {
-    const p = await courseApi.getProgress(courseId)
-    if (!p || !p.length) return 0
-    const sum = p.reduce((s, ch) => s + (ch.progress || 0), 0)
-    return Math.round(sum / p.length)
+    // 并发拉取：学习记录 + 课程章节列表
+    const [progressList, chapters] = await Promise.all([
+      courseApi.getProgress(courseId).catch(() => []),
+      courseApi.getChapters(courseId).catch(() => [])
+    ])
+    // 分母：课程总章节数；若章节为空，进度为 0
+    if (!chapters || chapters.length === 0) return 0
+    // 已学章节按 chapterId 索引
+    const pMap = {}
+    ;(progressList || []).forEach(p => {
+      if (p && p.chapterId != null) pMap[p.chapterId] = p.progress || 0
+    })
+    // 累加每章进度（未学章节算 0），除以总章节数
+    const sum = chapters.reduce((s, ch) => s + (pMap[ch.id] ?? 0), 0)
+    return Math.round(sum / chapters.length)
   } catch (e) {
     return 0
   }
@@ -21,8 +35,8 @@ Page({
   data: {
     userInfo: null,
     banners: [
-      { id: 1, image: '/images/banner1.jpg' },
-      { id: 2, image: '/images/banner2.jpg' }
+      { id: 1, image: '/images/default-cover.png' },
+      { id: 2, image: '/images/default-cover.png' }
     ],
     entries: [
       { icon: '/images/icon-course.png', text: '课程', url: '/pages/course/list/list' },
@@ -101,25 +115,26 @@ Page({
 
     if (statsRes.status === 'fulfilled' && statsRes.value) {
       const s = statsRes.value
+      // 后端 MyStatVO 字段：enrollCount/completedChapters/examCount/examAvgScore/consultCount/totalStudyHours
+      // 前端期望：courseCount/studyHours/completedCourses/examCount/passedCount/avgScore/passRate
+      // 注：后端无 passedCount 字段，保持 0（或后续后端补字段）
       const examCount = s.examCount ?? 0
-      const passedCount = s.passedCount ?? 0
       stats = {
-        courseCount: s.enrolledCount ?? s.courseCount ?? 0,
+        courseCount: s.enrollCount ?? s.courseCount ?? 0,
         studyHours: s.totalStudyHours ?? s.studyHours ?? 0,
-        completedCourses: s.completedCourses ?? 0,
+        completedCourses: s.completedChapters ?? s.completedCourses ?? 0,
         examCount,
-        passedCount,
-        avgScore: s.avgScore ?? 0,
-        passRate: examCount > 0 ? Math.round(passedCount * 100 / examCount) : 0
+        passedCount: s.passedCount ?? 0,
+        avgScore: s.examAvgScore ?? s.avgScore ?? 0,
+        passRate: examCount > 0 ? Math.round((s.passedCount ?? 0) * 100 / examCount) : 0
       }
     } else {
-      // 降级：从 my-courses 凑 courseCount / studyHours
+      // 降级：从 my-courses 凑 courseCount（学习时长无法降级获取真实值，保持 0）
       const myForFallback = (myRes.status === 'fulfilled' && myRes.value)
         ? (myRes.value.records || []) : []
       stats.courseCount = myForFallback.length
-      stats.studyHours = myForFallback.reduce(
-        (sum, c) => sum + (c.totalHours || c.total_hours || 0), 0
-      )
+      // 学习时长不降级（避免用课程 totalHours 误显示成几十小时）
+      stats.studyHours = 0
       // 平均分从 examApi 补算
       try {
         const records = await examApi.getMyRecords()
@@ -165,8 +180,9 @@ Page({
   },
 
   // 跳转 - 我的课程列表（最近学习"全部"入口）
+  // 修复：my-courses 是 tabBar 页面，必须用 switchTab（navigateTo 跳 tabBar 页会失败）
   onGoMyCourses() {
-    wx.navigateTo({ url: '/pages/course/my-courses/my-courses' })
+    wx.switchTab({ url: '/pages/course/my-courses/my-courses' })
   },
 
   // 跳转 - 课程中心（推荐课程"更多"/空态引导入口）

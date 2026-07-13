@@ -29,11 +29,11 @@
     "backgroundColor": "#fff",
     "borderStyle": "black",
     "list": [
-      { "pagePath": "pages/index/index", "text": "首页" },
-      { "pagePath": "pages/plan/plan", "text": "计划" },
-      { "pagePath": "pages/course/my-courses/my-courses", "text": "学习" },
-      { "pagePath": "pages/consult/index/index", "text": "咨询" },
-      { "pagePath": "pages/profile/profile", "text": "我的" }
+      { "pagePath": "pages/index/index", "text": "首页", "iconPath": "images/tab-home.png", "selectedIconPath": "images/tab-home-active.png" },
+      { "pagePath": "pages/plan/plan", "text": "计划", "iconPath": "images/tab-plan.png", "selectedIconPath": "images/tab-plan-active.png" },
+      { "pagePath": "pages/course/my-courses/my-courses", "text": "学习", "iconPath": "images/tab-book.png", "selectedIconPath": "images/tab-book-active.png" },
+      { "pagePath": "pages/consult/index/index", "text": "咨询", "iconPath": "images/tab-chat.png", "selectedIconPath": "images/tab-chat-active.png" },
+      { "pagePath": "pages/profile/profile", "text": "我的", "iconPath": "images/tab-me.png", "selectedIconPath": "images/tab-me-active.png" }
     ]
   },
   "sitemapLocation": "sitemap.json",

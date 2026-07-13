@@ -1,21 +1,18 @@
 // miniprogram/pages/course/study/study.js
-// 课程学习页：视频播放 + 章节切换 + 进度上报（节流 10s）+ 断点续播
+// 课程学习页：视频占位图 + 章节切换 + "标记学完"上报进度
+// 本项目不做真实视频播放，用 /images/video-placeholder.png 静态截图代替
 const studyApi = require('../../../api/study')
-
-// 模块级变量：进度上报节流计时（避免高频写后端）
-let _lastReport = 0
 
 Page({
   data: {
     courseId: null,
     course: null,          // 课程信息
     chapters: [],          // 章节列表（含 progress/lastPosition）
-    currentIndex: 0,       // 当前播放章节下标
-    currentChapter: null,  // 当前播放章节对象
+    currentIndex: 0,       // 当前章节下标
+    currentChapter: null,  // 当前章节对象
     progressMap: {},       // chapterId → { progress, lastPosition, studyDuration }
     overallProgress: 0,    // 总进度 0-100
-    loading: true,         // 骨架屏开关
-    videoContext: null     // wx.createVideoContext 实例
+    loading: true
   },
 
   onLoad(options) {
@@ -33,12 +30,6 @@ Page({
     }
 
     this.setData({ courseId })
-
-    // 创建 video 上下文（必须在 onLoad 里，onReady 也行但早一点更稳）
-    this.setData({
-      videoContext: wx.createVideoContext('courseVideo', this)
-    })
-
     this.loadCourseDetail(courseId)
   },
 
@@ -84,19 +75,6 @@ Page({
         currentChapter,
         loading: false
       })
-
-      // 首章节断点续播：等 video 渲染后 seek
-      if (currentChapter) {
-        const pos = progressMap[currentChapter.id]?.lastPosition || 0
-        if (pos > 0) {
-          // 延迟 300ms 等 video 组件就绪
-          setTimeout(() => {
-            if (this.data.videoContext) {
-              this.data.videoContext.seek(pos)
-            }
-          }, 300)
-        }
-      }
     } catch (err) {
       console.error('加载课程详情失败', err)
       wx.showToast({ title: '加载失败，请重试', icon: 'none' })
@@ -127,57 +105,6 @@ Page({
       currentIndex: index,
       currentChapter: chapter
     })
-
-    // 断点续播：切到该章节 lastPosition
-    const pos = this.data.progressMap[chapter.id]?.lastPosition || 0
-    if (pos > 0 && this.data.videoContext) {
-      setTimeout(() => {
-        this.data.videoContext.seek(pos)
-      }, 200)
-    }
-  },
-
-  // 视频播放进度更新 — 节流 10s 上报一次
-  onTimeUpdate(e) {
-    const { currentTime, duration } = e.detail
-    if (!duration || duration <= 0) return
-    if (!this.data.currentChapter) return
-
-    const now = Date.now()
-    // 节流：距上次上报不足 10s 则跳过
-    if (now - _lastReport < 10000) return
-
-    const progress = Math.min(100, Math.floor((currentTime / duration) * 100))
-    const chapterId = this.data.currentChapter.id
-    const lastPosition = Math.floor(currentTime)
-
-    // 更新本地 progressMap
-    const progressMap = { ...this.data.progressMap }
-    progressMap[chapterId] = {
-      ...(progressMap[chapterId] || {}),
-      progress,
-      lastPosition,
-      studyDuration: (progressMap[chapterId]?.studyDuration || 0) + 10
-    }
-
-    // 重新计算总进度
-    const overallProgress = this._calcOverall(progressMap)
-
-    this.setData({ progressMap, overallProgress })
-
-    // 标记上报时间
-    _lastReport = now
-
-    // 上报后端（fire-and-forget，失败仅 console）
-    studyApi.reportProgress({
-      courseId: this.data.courseId,
-      chapterId,
-      progress,
-      studyDuration: 10,
-      lastPosition
-    }).catch(err => {
-      console.warn('进度上报失败', err)
-    })
   },
 
   // 计算总进度 = 各章节 progress 平均
@@ -189,6 +116,7 @@ Page({
   },
 
   // "标记学完"按钮：把当前章节进度设为 100 并上报
+  // 本项目无真实视频，学完判定依赖学员手动点击
   onMarkDone() {
     const chapter = this.data.currentChapter
     if (!chapter) return
@@ -202,8 +130,6 @@ Page({
     const overallProgress = this._calcOverall(progressMap)
     this.setData({ progressMap, overallProgress })
 
-    // 立即上报（重置节流，让这次必上报）
-    _lastReport = 0
     studyApi.reportProgress({
       courseId: this.data.courseId,
       chapterId: chapter.id,
@@ -218,18 +144,11 @@ Page({
     })
   },
 
-  // 视频加载失败兜底
-  onVideoError(e) {
-    console.error('视频加载失败', e)
-    wx.showToast({ title: '视频加载失败', icon: 'none' })
-  },
-
-  // 页面卸载时上报最终进度（清零节流，确保最后一次能上报）
+  // 页面卸载时上报最终进度
   onUnload() {
     if (!this.data.currentChapter) return
     const chapterId = this.data.currentChapter.id
     const p = this.data.progressMap[chapterId] || {}
-    // fire-and-forget，不用 await
     studyApi.reportProgress({
       courseId: this.data.courseId,
       chapterId,

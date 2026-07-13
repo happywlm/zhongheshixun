@@ -41,14 +41,27 @@ Page({
       const res = await courseApi.getMyCourses({ pageNum, pageSize: this.data.pageSize })
 
       // 并发拉取每门课的学习进度
+      // 修复：分母必须是课程总章节数（不是已学章节数）
+      // 旧实现：3 章只学 1 章时，prog.length=1，进度算成 100%，错误
+      // 新实现：并发拉学习记录 + 章节列表，用 chapters.length 做分母
       const withProgress = await Promise.all((res.records || []).map(async (c) => {
         try {
-          const prog = await courseApi.getProgress(c.id)
-          // prog 可能是章节数组或对象；这里取 progress 百分比
-          const progress = (prog && typeof prog === 'object' && 'progress' in prog)
-            ? prog.progress
-            : (Array.isArray(prog) ? this.calcProgress(prog) : 0)
-          return { ...c, progress: progress || 0 }
+          const [progressList, chapters] = await Promise.all([
+            courseApi.getProgress(c.id).catch(() => []),
+            courseApi.getChapters(c.id).catch(() => [])
+          ])
+          let progress = 0
+          if (chapters && chapters.length > 0) {
+            // 已学章节按 chapterId 索引
+            const pMap = {}
+            ;(progressList || []).forEach(p => {
+              if (p && p.chapterId != null) pMap[p.chapterId] = p.progress || 0
+            })
+            // 累加每章进度（未学章节算 0），除以总章节数
+            const sum = chapters.reduce((s, ch) => s + (pMap[ch.id] ?? 0), 0)
+            progress = Math.round(sum / chapters.length)
+          }
+          return { ...c, progress }
         } catch (e) {
           return { ...c, progress: 0 }
         }
@@ -69,11 +82,10 @@ Page({
     }
   },
 
-  // 章节数组 → 完成百分比
+  // 章节数组 → 完成百分比（已废弃：旧实现分母错误，已改为上方 Promise.all 内联计算）
+  // 保留空实现避免外部调用报错
   calcProgress(chapters) {
-    if (!chapters || chapters.length === 0) return 0
-    const done = chapters.filter(ch => ch.completed || ch.progress >= 100).length
-    return Math.round((done / chapters.length) * 100)
+    return 0
   },
 
   // 上拉触底 → 加载下一页

@@ -87,7 +87,8 @@ Page({
     this.setData({ loadingList: true })
     try {
       const res = await consultApi.myList(this.data.pageNum, this.data.pageSize)
-      const list = (res.list || []).map(item => ({
+      // 后端返回 PageResult = { records, total, pageNum, pageSize }
+      const list = (res.records || []).map(item => ({
         ...item,
         createTime: this.formatTime(item.createTime),
         replyTime: item.replyTime ? this.formatTime(item.replyTime) : null

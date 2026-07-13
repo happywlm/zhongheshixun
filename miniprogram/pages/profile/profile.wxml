@@ -83,15 +83,15 @@
     <view class="sheet-title">编辑资料</view>
     <view class="form-row">
       <text class="form-label">姓名</text>
-      <input class="form-input" placeholder="请输入姓名" model:value="{{editForm.realName}}" />
+      <input class="form-input" placeholder="请输入姓名" value="{{editForm.realName}}" bindinput="onInputRealName" />
     </view>
     <view class="form-row">
       <text class="form-label">手机</text>
-      <input class="form-input" type="number" placeholder="请输入手机号" model:value="{{editForm.phone}}" />
+      <input class="form-input" type="number" placeholder="请输入手机号" value="{{editForm.phone}}" bindinput="onInputPhone" />
     </view>
     <view class="form-row">
       <text class="form-label">机构</text>
-      <input class="form-input" placeholder="请输入所属机构" model:value="{{editForm.orgName}}" />
+      <input class="form-input" placeholder="请输入所属机构" value="{{editForm.orgName}}" bindinput="onInputOrgName" />
     </view>
     <view class="form-row">
       <text class="form-label">岗位</text>

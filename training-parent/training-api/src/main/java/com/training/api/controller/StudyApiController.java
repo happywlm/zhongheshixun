@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestAttribute;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import javax.annotation.Resource;
@@ -75,5 +76,15 @@ public class StudyApiController {
         }
         return Result.success(PageResult.of(page.getRecords(), total,
                 (int) page.getCurrent(), (int) page.getSize()));
+    }
+
+    /**
+     * 检查是否已报名某课程（轻量接口）
+     * 修复 #8：前端 study.js getCourseDetail 原需请求 my-courses?pageSize=100 判断 1 个 courseId
+     */
+    @GetMapping("/check-enrolled")
+    public Result<Boolean> checkEnrolled(@RequestAttribute("userId") Long userId,
+                                         @RequestParam("courseId") Long courseId) {
+        return Result.success(studyService.isEnrolled(userId, courseId));
     }
 }

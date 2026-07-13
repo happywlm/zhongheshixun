@@ -41,6 +41,7 @@ nbdist/
 .claude/
 .codex/
 .opencode/
+.workbuddy/
 
 # ============ 系统文件 ============
 .DS_Store
@@ -80,6 +81,7 @@ __pycache__/
 !docs/**/*.png
 !docs/**/*.jpg
 !专业文档/**/*.png
+!miniprogram/images/**/*.png
 
 # ============ 临时调试脚本 ============
 tmp/
@@ -97,12 +99,14 @@ check-plan.js
 write_result.py
 batch_md_to_docx.py
 md_to_docx.py
+_md2docx.py
 test_*.py
 *_debug*.py
 *_full.py
 production/backup/
 *.sql.gz
 *.sql.bak
+fix_wx_password.sql
 
 # ============ PowerDesigner（工具安装文件，不上传） ============
 powerDesigner/

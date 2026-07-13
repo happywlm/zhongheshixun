@@ -21,8 +21,13 @@
       </view>
       <view class="stat-divider"></view>
       <view class="stat-item">
-        <view class="stat-value wrong">{{totalCount - correctCount}}</view>
+        <view class="stat-value wrong">{{wrongCount}}</view>
         <view class="stat-label">答错</view>
+      </view>
+      <view class="stat-divider"></view>
+      <view class="stat-item">
+        <view class="stat-value">{{unansweredCount}}</view>
+        <view class="stat-label">未答</view>
       </view>
       <view class="stat-divider"></view>
       <view class="stat-item">
@@ -34,13 +39,12 @@
 
   <!-- 提示 -->
   <view class="result-tip">
-    {{passed ? '恭喜你通过考试，继续加油！' : '再接再厉，复习后重新参加考试'}}
+    {{passed ? '恭喜你通过考试，继续加油！' : '未通过考试，如需补考请联系老师安排新考试'}}
   </view>
 
   <!-- 操作按钮 -->
   <view class="result-actions">
     <view class="btn-primary" bindtap="goBack">返回考试列表</view>
-    <view class="btn-secondary" wx:if="{{!passed}}" bindtap="retryExam">重新考试</view>
     <view class="btn-secondary" bindtap="goHome">返回首页</view>
   </view>
 </view>

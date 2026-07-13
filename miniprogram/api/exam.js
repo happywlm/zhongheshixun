@@ -59,8 +59,9 @@ function mapQuestion(q) {
 
 module.exports = {
   // 可参加的考试列表
-  // 返回数组；list 页内部会 enrichWithUserRecords 拼接我的考试记录
-  getList: () => request('/exam/list', 'GET').then(list => (list || [])),
+  // 后端返回 PageResult<ExamListVO> = { records, total, pageNum, pageSize }
+  // ExamListVO 已含学员维度字段：status/score/passed/times/retryLeft/recordId
+  getList: () => request('/exam/list', 'GET').then(res => ((res && res.records) || [])),
 
   // 我的考试记录（用于在 list 列表上打标）
   getMyRecords: () => request('/exam/my-records', 'GET').then(list => (list || []).map(mapRecord)),
@@ -80,5 +81,9 @@ module.exports = {
   submitExam: (data) => request('/exam/submit', 'POST', data),
 
   // 考试记录详情
-  getRecord: (id) => request(`/exam/record/${id}`, 'GET').then(mapRecord)
+  getRecord: (id) => request(`/exam/record/${id}`, 'GET').then(mapRecord),
+
+  // 考试结果详情（含 correctCount/wrongCount/unansweredCount/totalScore/correctRate）
+  // 后端 /exam/result?examId=xxx 返回 ExamResultVO
+  getResult: (examId) => request(`/exam/result?examId=${examId}`, 'GET')
 }

@@ -23,9 +23,12 @@
   </view>
 
   <!-- 考试列表 -->
-  <view class="exam-list" wx:if="{{filteredList().length > 0}}">
+  <!-- 修复 #1：WXML 不支持函数调用，改用 data.filteredList -->
+  <view class="exam-list" wx:if="{{filteredList.length > 0}}">
     <view class="exam-card"
-          wx:for="{{filteredList()}}"
+          hover-class="exam-card-hover"
+          hover-stay-time="100"
+          wx:for="{{filteredList}}"
           wx:key="id"
           data-id="{{item.id}}"
           data-status="{{item.status}}"
@@ -49,10 +52,6 @@
           <text class="meta-label">题数</text>
           <text class="meta-value">{{item.questionCount}} 题</text>
         </view>
-        <view class="meta-item" wx:if="{{item.status === 0}}">
-          <text class="meta-label">剩余重考</text>
-          <text class="meta-value highlight">{{item.retryLeft}} 次</text>
-        </view>
         <view class="meta-item" wx:if="{{item.status === 1}}">
           <text class="meta-label">得分</text>
           <text class="meta-value score">{{item.score}}</text>
@@ -60,9 +59,20 @@
       </view>
 
       <view class="exam-action">
-        <view class="btn-exam" wx:if="{{item.status === 0 && item.retryLeft > 0}}">开始考试</view>
-        <view class="btn-exam disabled" wx:elif="{{item.status === 0 && item.retryLeft === 0}}">无重考次数</view>
-        <view class="btn-result" wx:if="{{item.status === 1}}">查看成绩</view>
+        <view class="btn-exam"
+              wx:if="{{item.status === 0}}"
+              catchtap="goExam"
+              data-id="{{item.id}}"
+              data-status="{{item.status}}"
+              data-title="{{item.title}}">开始考试</view>
+        <view class="btn-result"
+              wx:if="{{item.status === 1}}"
+              catchtap="goExam"
+              data-id="{{item.id}}"
+              data-status="{{item.status}}"
+              data-score="{{item.score}}"
+              data-record-id="{{item.recordId}}"
+              data-title="{{item.title}}">查看成绩</view>
       </view>
     </view>
   </view>

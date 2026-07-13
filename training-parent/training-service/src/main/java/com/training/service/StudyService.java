@@ -35,4 +35,10 @@ public interface StudyService extends IService<StudyRecord> {
      * 查询学员已报名的课程列表
      */
     IPage<Course> myCourses(Long userId, CoursePageQuery query);
+
+    /**
+     * 检查学员是否已报名某课程（轻量查询，避免拉取整页 my-courses）
+     * 修复 #8：旧前端为判断 1 个 courseId 是否报名，需请求 my-courses?pageSize=100
+     */
+    boolean isEnrolled(Long userId, Long courseId);
 }

@@ -22,7 +22,31 @@ Page({
         const tb = new Date(b.submitTime).getTime() || 0
         return tb - ta
       })
-      this.setData({ records: sorted, loading: false })
+
+      // 修复：ExamRecord 实体只有 examId/score/submitTime，缺 examTitle/correctCount/totalCount/passed
+      // 用每个 record 的 examId 调 /exam/result 拉完整数据（并发）
+      const enriched = await Promise.all(sorted.map(async (r) => {
+        if (!r.examId) return r
+        try {
+          const detail = await examApi.getResult(r.examId)
+          return {
+            ...r,
+            examTitle: detail.examTitle || r.examTitle || `考试 #${r.examId}`,
+            score: detail.score ?? r.score ?? 0,
+            totalScore: detail.totalScore ?? 0,
+            passed: detail.passed ?? r.passed ?? false,
+            correctCount: detail.correctCount ?? 0,
+            wrongCount: detail.wrongCount ?? 0,
+            unansweredCount: detail.unansweredCount ?? 0,
+            totalCount: (detail.correctCount || 0) + (detail.wrongCount || 0) + (detail.unansweredCount || 0)
+          }
+        } catch (e) {
+          // 单条失败不影响其他，返回原始数据
+          return { ...r, examTitle: r.examTitle || `考试 #${r.examId}` }
+        }
+      }))
+
+      this.setData({ records: enriched, loading: false })
     } catch (e) {
       console.error('[records] load error', e)
       this.setData({ loading: false })
@@ -30,9 +54,14 @@ Page({
     }
   },
 
-  // 跳转到考试结果页（exam/detail 不存在，跳 result）
+  // 跳转到考试结果页
+  // 修复：补传 examId，result 页用它调 /exam/result 拉完整对错统计
+  // 注意：WXML 里 data-exam-id 会自动转成 dataset.examId（驼峰），不是 examid
   goRecord(e) {
-    const { id } = e.currentTarget.dataset
-    wx.navigateTo({ url: `/pages/exam/result/result?id=${id}&from=records` })
+    const { id, examId } = e.currentTarget.dataset
+    console.log('[goRecord] dataset:', e.currentTarget.dataset, 'id:', id, 'examId:', examId)
+    wx.navigateTo({
+      url: `/pages/exam/result/result?id=${id}&examId=${examId}&from=records`
+    })
   }
 })

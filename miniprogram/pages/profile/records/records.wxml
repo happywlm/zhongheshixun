@@ -23,7 +23,11 @@
 
   <!-- 时间线 -->
   <view class="timeline">
-    <view class="timeline-item {{item.passed ? 'passed' : 'failed'}}" wx:for="{{records}}" wx:key="id" data-id="{{item.id}}" bindtap="goRecord">
+    <view class="timeline-item {{item.passed ? 'passed' : 'failed'}}"
+          wx:for="{{records}}" wx:key="id"
+          data-id="{{item.id}}"
+          data-exam-id="{{item.examId}}"
+          bindtap="goRecord">
       <!-- 左侧圆点 + 竖线 -->
       <view class="timeline-left">
         <view class="dot"></view>
@@ -33,25 +37,25 @@
       <!-- 右侧卡片 -->
       <view class="card">
         <view class="card-header">
-          <text class="card-title">{{item.examTitle}}</text>
+          <text class="card-title">{{item.examTitle || '未命名考试'}}</text>
           <text class="badge {{item.passed ? 'badge-pass' : 'badge-fail'}}">{{item.passed ? '通过' : '未通过'}}</text>
         </view>
         <view class="card-body">
           <view class="stat">
             <text class="stat-label">分数</text>
-            <text class="stat-value">{{item.score}}</text>
+            <text class="stat-value">{{item.score || 0}}</text>
           </view>
           <view class="stat">
             <text class="stat-label">答对</text>
-            <text class="stat-value">{{item.correctCount}}/{{item.totalCount}}</text>
+            <text class="stat-value">{{item.correctCount || 0}}/{{item.totalCount || 0}}</text>
           </view>
-          <view class="stat" wx:if="{{item.duration}}">
-            <text class="stat-label">用时</text>
-            <text class="stat-value">{{item.duration}}分钟</text>
+          <view class="stat">
+            <text class="stat-label">答错</text>
+            <text class="stat-value">{{item.wrongCount || 0}}</text>
           </view>
         </view>
         <view class="card-footer">
-          <text class="submit-time">提交于 {{item.submitTime}}</text>
+          <text class="submit-time">提交于 {{item.submitTime || '未知时间'}}</text>
         </view>
       </view>
     </view>

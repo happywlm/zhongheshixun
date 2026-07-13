@@ -10,19 +10,11 @@
   </block>
 
   <block wx:elif="{{currentChapter}}">
-    <!-- 1. 视频播放器 -->
-    <video
-      id="courseVideo"
-      class="video"
-      src="{{currentChapter.videoUrl}}"
-      poster="{{course.coverUrl}}"
-      controls
-      show-center-play-btn
-      enable-play-gesture
-      custom-cache="{{false}}"
-      bindtimeupdate="onTimeUpdate"
-      binderror="onVideoError"
-    ></video>
+    <!-- 1. 视频占位图（本项目不做真实视频播放，用静态截图代替） -->
+    <view class="video-poster-wrap">
+      <image class="video-poster" src="/images/video-placeholder.png" mode="aspectFill" />
+      <view class="video-poster-tip">视频学习区域</view>
+    </view>
 
     <!-- 2. 当前章节卡 -->
     <view class="chapter-card">

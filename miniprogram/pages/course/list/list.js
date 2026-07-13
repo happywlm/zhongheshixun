@@ -43,9 +43,32 @@ Page({
     this.loadData(true)
   },
 
+  // 实时记录输入框值（不立即搜索，避免每次输入都请求）
+  onSearchInput(e) {
+    this.setData({ keyword: (e.detail.value || '').trim() })
+  },
+
+  // 点击"搜索"按钮触发
+  onSearchClick() {
+    this.setData({ pageNum: 1, list: [], hasMore: true })
+    this.loadData()
+  },
+
+  // 键盘"搜索"键触发
   onSearch(e) {
     this.setData({
       keyword: (e.detail.value || '').trim(),
+      pageNum: 1,
+      list: [],
+      hasMore: true
+    })
+    this.loadData()
+  },
+
+  // 清空搜索关键词
+  onClearKeyword() {
+    this.setData({
+      keyword: '',
       pageNum: 1,
       list: [],
       hasMore: true

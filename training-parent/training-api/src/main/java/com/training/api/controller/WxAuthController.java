@@ -9,6 +9,7 @@ import com.training.common.vo.LoginVO;
 import com.training.mapper.SysRoleMapper;
 import com.training.service.SysUserService;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -43,6 +44,14 @@ public class WxAuthController {
      */
     @Resource
     private SysRoleMapper roleMapper;
+
+    /**
+     * BCrypt 密码编码器
+     * <p>用途：小程序注册用户时，把默认密码 "123456" 编码为 BCrypt 哈希写入 sys_user.password，
+     * 让小程序注册的学员也能用 123456 在 PC 学员端（web-student /admin/login）登录参加考试。</p>
+     */
+    @Resource
+    private BCryptPasswordEncoder passwordEncoder;
 
     /**
      * 微信小程序登录
@@ -187,11 +196,21 @@ public class WxAuthController {
     private SysUser createStudentUser(String username, WxLoginDTO dto) {
         SysUser user = new SysUser();
         user.setUsername(username);
-        // 随机密码（学员通过微信登录，无需密码）
-        user.setPassword("wx_login_user");
+        // 默认密码 123456（BCrypt 哈希），让小程序注册的学员也能用 123456
+        // 在 PC 学员端（web-student /admin/login）登录参加考试
+        user.setPassword(passwordEncoder.encode("123456"));
         user.setRealName(dto.getNickName() != null ? dto.getNickName() : "微信用户");
         user.setAvatar(dto.getAvatarUrl());
-        user.setRole("student");
+        // 修复 Bug #4：角色编码必须大写 STUDENT，与 sys_role 表的 role_code 一致
+        // 旧值 "student"（小写）会导致 LEFT JOIN sys_role 查不到记录，
+        // /api/user/profile 返回 role=null、roleName=null
+        user.setRole("STUDENT");
+        // 同时设置 role_id 外键：selectUserById 的 SQL 通过 LEFT JOIN sys_role ON r.id = u.role_id
+        // 获取 role_code/role_name，若 role_id 为 null 则 JOIN 结果为 null
+        SysRole studentRole = roleMapper.selectByCode("STUDENT");
+        if (studentRole != null) {
+            user.setRoleId(studentRole.getId());
+        }
         user.setStatus(1);
         userService.save(user);
         return user;

@@ -57,9 +57,12 @@ Page({
     }
   },
 
-  // 跳转我的资料（edit 页暂未实现）
+  // 跳转我的资料 - 复用 profile 页已有的编辑表单
+  // 修复 #3：旧实现只显示"开发中"toast，edit 页面未注册无法跳转
+  // 方案：设置标记后 navigateBack 回 profile 页，profile.onShow 检测标记并自动打开编辑弹窗
   goProfile() {
-    wx.showToast({ title: '开发中', icon: 'none' })
+    wx.setStorageSync('openEditFlag', true)
+    wx.navigateBack()
   },
 
   // 清理缓存

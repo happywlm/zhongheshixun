@@ -74,9 +74,10 @@ module.exports = {
       courseApi.getChapters(courseId),
       // getProgress 可能返回空数组，容错
       request(`/study/progress/${courseId}`, 'GET').then(list => list || []),
-      // 通过 my-courses 判定是否报名（仅查第 1 页即可）
-      request('/study/my-courses', 'GET', { pageNum: 1, pageSize: 100 })
-        .then(res => (res.records || []).some(c => c.id === courseId))
+      // 修复 #8：用轻量 check-enrolled 接口替代 my-courses?pageSize=100
+      // 修复 #2：原实现 c.id === courseId 类型不匹配（数字 vs 字符串）永远 false
+      request('/study/check-enrolled', 'GET', { courseId })
+        .then(res => res === true)
         .catch(() => false)
     ]).then(([detail, chapters, progressList, enrolled]) => {
       // 章节级进度 map: chapterId → progress

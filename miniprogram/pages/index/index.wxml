@@ -9,10 +9,10 @@
     <view class="logout-btn" bindtap="onLogout">退出</view>
   </view>
 
-  <!-- 2. Banner 轮播（保留 placeholder） -->
+  <!-- 2. Banner 轮播 -->
   <swiper class="banner" indicator-dots autoplay interval="4000" circular>
     <swiper-item wx:for="{{banners}}" wx:key="id">
-      <view class="banner-placeholder">轮播图 {{item.id}}</view>
+      <image class="banner-img" src="{{item.image}}" mode="aspectFill" />
     </swiper-item>
   </swiper>
 
@@ -33,7 +33,7 @@
       </view>
       <view class="stat-item">
         <view class="stat-num">{{stats.completedCourses}}</view>
-        <view class="stat-label">已完课</view>
+        <view class="stat-label">已完成章节</view>
       </view>
       <view class="stat-item">
         <view class="stat-num">{{stats.passRate}}%</view>
@@ -46,7 +46,7 @@
   <view class="entries">
     <view class="entry-item" wx:for="{{entries}}" wx:key="text"
           data-url="{{item.url}}" bindtap="onGoTo">
-      <view class="entry-icon">{{item.text[0]}}</view>
+      <image class="entry-icon-img" src="{{item.icon}}" mode="aspectFit" />
       <text>{{item.text}}</text>
     </view>
   </view>

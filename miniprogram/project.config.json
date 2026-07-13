@@ -2,7 +2,7 @@
   "miniprogramRoot": "",
   "projectname": "training-miniapp",
   "description": "四川省基层卫生人员网络培训平台-学员端",
-  "appid": "touristappid",
+  "appid": "wxf1e0f50f96da47e9",
   "setting": {
     "urlCheck": false,
     "es6": true,
@@ -14,7 +14,20 @@
       "ignore": [],
       "disablePlugins": [],
       "outputPath": ""
-    }
+    },
+    "compileWorklet": false,
+    "uglifyFileName": false,
+    "uploadWithSourceMap": true,
+    "packNpmManually": false,
+    "packNpmRelationList": [],
+    "minifyWXSS": true,
+    "minifyWXML": true,
+    "localPlugins": false,
+    "disableUseStrict": false,
+    "useCompilerPlugins": false,
+    "condition": false,
+    "swc": false,
+    "disableSWC": true
   },
   "compileType": "miniprogram",
   "libVersion": "3.13.2",
@@ -26,5 +39,6 @@
   "editorSetting": {
     "tabIndent": "insertSpaces",
     "tabSize": 2
-  }
+  },
+  "simulatorPluginLibVersion": {}
 }

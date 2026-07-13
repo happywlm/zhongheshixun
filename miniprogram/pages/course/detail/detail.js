@@ -48,18 +48,17 @@ Page({
   },
 
   // 查询我是否报名了该课程 + 章节学习进度
+  // 修复 #7：旧实现用"有进度"判断"已报名"，刚报名未学的课程会被误判为未报名
+  // 新逻辑：优先用 my-courses 判断报名状态，进度只用于显示进度条
   async refreshEnrollState(id) {
     try {
-      const progress = await courseApi.getProgress(id)
-      // progress: [{ chapterId, progress, studyDuration }] 章节级
-      let enrolled = false
-      if (progress && progress.length > 0) {
-        enrolled = true
-      } else {
-        // 没进度 → 查我的课程列表判定是否报名
-        const my = await courseApi.getMyCourses({ pageNum: 1, pageSize: 50 })
-        enrolled = (my.records || []).some(c => String(c.id) === String(id))
-      }
+      // 并发：查报名状态 + 查学习进度
+      const [my, progress] = await Promise.all([
+        courseApi.getMyCourses({ pageNum: 1, pageSize: 100 }).catch(() => ({ records: [] })),
+        courseApi.getProgress(id).catch(() => [])
+      ])
+      // 修复 #2 类似问题：id 类型归一化比较
+      const enrolled = (my.records || []).some(c => String(c.id) === String(id))
       this.setData({ enrolled, progress })
     } catch (e) {
       // 忽略
@@ -67,6 +66,9 @@ Page({
   },
 
   // 报名
+  // 修复 #4：后端对"已报名"返回 code=1005，request.js 会 toast + reject，
+  // 旧 catch 再显示"报名失败，请重试"造成双重 toast
+  // 新 catch 判断 code=1005 时不重复 toast
   onEnroll() {
     if (this.data.enrolled) {
       wx.showToast({ title: '已报名', icon: 'none' })
@@ -82,7 +84,11 @@ Page({
           wx.showToast({ title: '报名成功', icon: 'success' })
           this.setData({ enrolled: true })
         } catch (e) {
-          wx.showToast({ title: '报名失败，请重试', icon: 'none' })
+          // request.js 已对非 200 code 统一 toast（含"已报名该课程"）
+          // 这里只在非业务错误（无 code 字段）时兜底提示
+          if (!e || !e.code) {
+            wx.showToast({ title: '报名失败，请重试', icon: 'none' })
+          }
         }
       }
     })

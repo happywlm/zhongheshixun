@@ -93,4 +93,14 @@ public class StudyServiceImpl extends ServiceImpl<StudyRecordMapper, StudyRecord
         Page<Course> page = new Page<>(query.getPageNum(), query.getPageSize());
         return courseMapper.selectEnrolledCourses(page, userId);
     }
+
+    @Override
+    public boolean isEnrolled(Long userId, Long courseId) {
+        // 修复 #8：轻量查询，count 1 条记录即可，避免拉取整页 my-courses
+        LambdaQueryWrapper<CourseEnroll> wrapper = new LambdaQueryWrapper<CourseEnroll>()
+                .eq(CourseEnroll::getStudentId, userId)
+                .eq(CourseEnroll::getCourseId, courseId);
+        Long count = courseEnrollMapper.selectCount(wrapper);
+        return count != null && count > 0;
+    }
 }
