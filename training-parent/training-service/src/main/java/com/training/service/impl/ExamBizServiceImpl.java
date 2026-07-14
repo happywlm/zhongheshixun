@@ -606,7 +606,7 @@ public class ExamBizServiceImpl implements ExamBizService {
         wrapper.last("AND difficulty IN (1,2,3)"); // 仅客观题可自动阅卷
         List<Question> pool = questionMapper.selectList(wrapper);
         int count = exam.getQuestionCount() != null && exam.getQuestionCount() > 0
-                ? exam.getQuestionCount() : 20;
+                ? exam.getQuestionCount() : 10;
         return randomPick(pool, count);
     }
 

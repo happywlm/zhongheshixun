@@ -58,7 +58,7 @@ public class ExamServiceImpl extends ServiceImpl<ExamMapper, Exam> implements Ex
             exam.setMaxRetry(1);
         }
         if (exam.getQuestionCount() == null) {
-            exam.setQuestionCount(20);
+            exam.setQuestionCount(10);
         }
         // M11-P0-1: 创建考试时若未指定 questionIds 则自动组卷(按 courseId 优先 + 全库补足)
         if (exam.getQuestionIds() == null || exam.getQuestionIds().trim().isEmpty()) {
