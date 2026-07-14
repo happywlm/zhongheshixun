@@ -64,7 +64,8 @@ public class ConsultApiController {
      * body: { consultId }
      */
     @PostMapping("/transfer-human")
-    public Result<Void> transferHuman(@RequestBody Map<String, Object> body) {
+    public Result<Void> transferHuman(@RequestBody Map<String, Object> body,
+                                       HttpServletRequest request) {
         Object idObj = body.get("consultId");
         if (idObj == null) {
             return Result.error(400, "consultId 不能为空");
@@ -75,7 +76,9 @@ public class ConsultApiController {
         } catch (NumberFormatException e) {
             return Result.error(400, "consultId 格式错误");
         }
-        consultService.transferHuman(consultId);
+        // [水平越权修复 / #3 评审项] 从 request 取当前登录学员ID，service 层校验 consult_record.student_id == userId
+        Long userId = (Long) request.getAttribute("userId");
+        consultService.transferHuman(consultId, userId);
         return Result.success(null);
     }
 }

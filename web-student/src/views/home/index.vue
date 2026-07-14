@@ -183,7 +183,6 @@ async function fetchData() {
         // P2-11 修复：不再传 studentId，后端从 request attribute 取 userId
         stats.value = await getMyStats()
       } catch (e) {
-        console.warn('[home] getMyStats 失败，使用默认空值', e)
         stats.value = {}
       }
     }
@@ -217,14 +216,12 @@ async function fetchData() {
         })
       )
     } catch (e) {
-      console.warn('[home] getMyCourses 失败，使用空列表', e)
       myCourses.value = []
     }
     try {
       const res = await getCourseList({ pageNum: 1, pageSize: 6 })
       recommendCourses.value = res?.records || res?.list || res || []
     } catch (e) {
-      console.warn('[home] getCourseList 失败，使用空列表', e)
       recommendCourses.value = []
     }
   } finally {

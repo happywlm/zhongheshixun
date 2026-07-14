@@ -25,12 +25,12 @@ export default defineConfig({
     port: 5174,  // live（注：实际端口=5174，5175/5173 都是 typo）
     open: false,
     proxy: {
-      // 业务接口 → 9899 training-api（注：8081 端口被僵尸进程死锁，改用 9899）
+      // 业务接口 → 代理到 training-api 后端（9899）
       '/api': {
         target: 'http://localhost:9899',
         changeOrigin: true,
       },
-      // 登录接口 → 9898 training-admin（仅 /admin/login 用）
+      // 登录接口 → 代理到 training-admin 后端（9898，仅 /admin/login 用）
       '/admin': {
         target: 'http://localhost:9898',
         changeOrigin: true,

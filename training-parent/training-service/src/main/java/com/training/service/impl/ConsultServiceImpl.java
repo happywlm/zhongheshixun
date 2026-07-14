@@ -171,13 +171,18 @@ public class ConsultServiceImpl implements ConsultService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void transferHuman(Long consultId) {
+    public void transferHuman(Long consultId, Long userId) {
         if (consultId == null) {
             throw new IllegalArgumentException("咨询ID不能为空");
         }
         ConsultRecord exist = consultRecordMapper.selectById(consultId);
         if (exist == null) {
             throw new IllegalArgumentException("咨询记录不存在");
+        }
+        // [水平越权修复 / #3 评审项] 仅允许本人对自己的咨询发起转人工，
+        // 防止恶意用户通过 consultId 清空他人 AI 回复。
+        if (userId == null || !userId.equals(exist.getStudentId())) {
+            throw new IllegalArgumentException("无权操作他人咨询记录");
         }
         // 使用 LambdaUpdateWrapper 显式设置 answer/reply_time 为 null
         // （MyBatis-Plus updateById 默认不更新 null 字段）
@@ -188,7 +193,7 @@ public class ConsultServiceImpl implements ConsultService {
                         .set(ConsultRecord::getIsAuto, 0)
                         .set(ConsultRecord::getReplyTime, null);
         consultRecordMapper.update(null, wrapper);
-        log.info("学员主动转人工: consultId={}", consultId);
+        log.info("学员主动转人工: consultId={}, userId={}", consultId, userId);
     }
 
     /**

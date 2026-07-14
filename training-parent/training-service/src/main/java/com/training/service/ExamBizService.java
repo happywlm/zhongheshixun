@@ -39,8 +39,15 @@ public interface ExamBizService {
 
     /**
      * 提交考试 + 自动阅卷
+     *
+     * @param examId          考试ID
+     * @param studentId       学员ID
+     * @param answers         答案列表
+     * @param clientStartTime 客户端开考时间戳（毫秒，由前端 Date.now() 上报），用于交叉校验防时钟篡改；可空
+     * @param clientEndTime   客户端提交时间戳（毫秒），用于交叉校验；可空
      */
-    ExamResultVO submitExam(Long examId, Long studentId, List<AnswerDTO> answers);
+    ExamResultVO submitExam(Long examId, Long studentId, List<AnswerDTO> answers,
+                            Long clientStartTime, Long clientEndTime);
 
     /**
      * 管理员自动组卷并持久化模板试卷（studentId = 0L 作为模板标识）

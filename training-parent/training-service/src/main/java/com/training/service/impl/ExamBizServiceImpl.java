@@ -1,6 +1,7 @@
 package com.training.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.training.common.dto.AnswerDTO;
 import com.training.common.entity.*;
 import com.training.common.exception.BusinessException;
@@ -366,7 +367,8 @@ public class ExamBizServiceImpl implements ExamBizService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public ExamResultVO submitExam(Long examId, Long studentId, List<AnswerDTO> answers) {
+    public ExamResultVO submitExam(Long examId, Long studentId, List<AnswerDTO> answers,
+                                    Long clientStartTime, Long clientEndTime) {
         // 1. 查找进行中的考试记录
         ExamRecord record = examRecordMapper.selectOne(
                 new LambdaQueryWrapper<ExamRecord>()
@@ -382,11 +384,65 @@ public class ExamBizServiceImpl implements ExamBizService {
             throw new BusinessException(ResultCode.BUSINESS_ERROR.getCode(), "本场考试已提交过");
         }
 
+        // 1.1 [并发防重 / #2 评审项] 乐观锁 CAS：仅当 status=0 时抢占为 status=1（已提交待批阅）。
+        // 并发双写时只有一个线程能命中 status=0，另一个 affected=0 抛业务异常，避免双插 exam_answer / 成绩被覆盖。
+        LocalDateTime submitTime = LocalDateTime.now();
+        int affected = examRecordMapper.update(null,
+                new LambdaUpdateWrapper<ExamRecord>()
+                        .eq(ExamRecord::getId, record.getId())
+                        .eq(ExamRecord::getStatus, 0)
+                        .set(ExamRecord::getStatus, 1)
+                        .set(ExamRecord::getSubmitTime, submitTime)
+        );
+        if (affected == 0) {
+            throw new BusinessException(ResultCode.BUSINESS_ERROR.getCode(), "考试已提交，请勿重复操作");
+        }
+        // 同步本地对象状态（后续阅卷会再次 update 到 status=2）
+        record.setStatus(1);
+        record.setSubmitTime(submitTime);
+
         // 2. 校验时间窗口（超时自动提交，但提示）
         Exam exam = examMapper.selectById(examId);
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = submitTime;
         if (exam != null && exam.getEndTime() != null && now.isAfter(exam.getEndTime())) {
             log.warn("学员 {} 提交考试 {} 时已超出结束时间，自动提交", studentId, examId);
+        }
+
+        // 2.1 [时间戳交叉校验 / #3 评审项] 防止用户改系统时钟作弊
+        //   - serverStartTime = examRecord.start_time（服务端落库，不可篡改）
+        //   - serverAllowedDuration = exam.duration 分钟
+        //   - tolerance = 60 秒（容忍时钟漂移 / 网络延迟）
+        //   - 超时 > 5 分钟（300 秒）直接判违规 score=0；超时但 <= 5 分钟标记违规但允许提交（不直接失败，避免误伤正常用户）
+        boolean forceZeroScore = false;
+        if (clientStartTime != null && clientEndTime != null && record.getStartTime() != null && exam != null) {
+            long serverStartMillis = record.getStartTime()
+                    .atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli();
+            int durationMin = exam.getDuration() != null ? exam.getDuration() : 60;
+            long serverAllowedMillis = durationMin * 60L * 1000L;
+            long toleranceMillis = 60L * 1000L; // 60 秒容差
+
+            // 容错：客户端开考时间与服务端开考时间偏差过大仅记 warning（可能终端时钟不同步）
+            long startDelta = Math.abs(clientStartTime - serverStartMillis);
+            if (startDelta > 5L * 60L * 1000L) {
+                log.warn("[考试违规检测] 学员 {} 考试 {} clientStartTime 与 serverStartTime 偏差 {}ms > 5min，疑似终端时钟异常",
+                        studentId, examId, startDelta);
+            }
+
+            long clientDuration = clientEndTime - clientStartTime;
+            long allowedUpperBound = serverAllowedMillis + toleranceMillis;
+            if (clientDuration > allowedUpperBound) {
+                long overMillis = clientDuration - serverAllowedMillis;
+                if (overMillis > 5L * 60L * 1000L) {
+                    // 超时 > 5 分钟，直接判违规 score=0
+                    forceZeroScore = true;
+                    log.warn("[考试违规检测] 学员 {} 考试 {} 客户端实际作答时长 {}ms 超出服务端允许 {}ms 达 {}ms（>5min），判违规 score=0",
+                            studentId, examId, clientDuration, serverAllowedMillis, overMillis);
+                } else {
+                    // 超时但 <= 5 分钟，标记违规但允许提交（避免误伤）
+                    log.warn("[考试违规检测] 学员 {} 考试 {} 客户端实际作答时长 {}ms 超出服务端允许 {}ms 达 {}ms（<=5min），标记违规但允许提交",
+                            studentId, examId, clientDuration, serverAllowedMillis, overMillis);
+                }
+            }
         }
 
         // 3. 加载试卷题目
@@ -442,12 +498,6 @@ public class ExamBizServiceImpl implements ExamBizService {
                 ea.setScore(score);
                 earnedScore += score;
                 if (correct) correctCount++; else wrongCount++;
-                // [临时调试] 判分详情，判 0 分排查用，正式发布前删除
-                log.info("判题详情 questionId={} typeDB={} ansDB='{}' ansUser='{}' correct={}",
-                        q.getId(), q.getQuestionType(),
-                        (q.getAnswer() == null ? "" : q.getAnswer().trim()),
-                        (userAns == null ? "NULL" : userAns.trim()),
-                        correct);
             }
             examAnswerMapper.insert(ea);
         }
@@ -458,6 +508,10 @@ public class ExamBizServiceImpl implements ExamBizService {
         int percentScore = totalScore > 0
                 ? (int) Math.round((double) earnedScore / totalScore * 100)
                 : 0;
+        // [时间戳交叉校验 / #3 评审项] 严重违规（超时 > 5 分钟）强制 0 分
+        if (forceZeroScore) {
+            percentScore = 0;
+        }
         record.setScore(percentScore);
         record.setStatus(2); // 已批阅
         record.setSubmitTime(now);

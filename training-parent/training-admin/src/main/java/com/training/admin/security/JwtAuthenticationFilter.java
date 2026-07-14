@@ -101,9 +101,17 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             chain.doFilter(request, response);
         } catch (Exception e) {
             // 异常必须打堆栈 + 中断链路，避免被吞成 500 无任何线索
-            log.error("[RBAC] 认证流程异常，URI={}", request.getRequestURI(), e);
+            // [安全修复 / #11 评审项] 不把 e.getMessage() 直接回写前端，避免泄露内部细节（如 "JWT signature does not match"）
+            // 仅 server 端 log.warn 记录原始异常，前端统一返回中文 "认证失败，请重新登录"
+            log.warn("[RBAC] 认证流程异常，URI={}, msg={}", request.getRequestURI(), e.getMessage());
             SecurityContextHolder.clearContext();
-            response.sendError(HttpServletResponse.SC_UNAUTHORIZED, e.getMessage());
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            response.setContentType("application/json;charset=UTF-8");
+            try {
+                response.getWriter().write("{\"code\":401,\"message\":\"认证失败，请重新登录\"}");
+            } catch (IOException ioEx) {
+                log.error("[RBAC] 写入 401 响应失败", ioEx);
+            }
             return;
         }
     }

@@ -2,6 +2,8 @@ package com.training.common.utils;
 
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -16,6 +18,8 @@ import java.util.Map;
  */
 @Component
 public class JwtUtils {
+
+    private static final Logger log = LoggerFactory.getLogger(JwtUtils.class);
 
     @Value("${training.jwt.secret}")
     private String secret;
@@ -102,6 +106,9 @@ public class JwtUtils {
             parse(token);
             return true;
         } catch (JwtException | IllegalArgumentException e) {
+            // [安全修复 / #11 评审项] 仅 server 端 log.warn 记录原始异常信息，
+            // 不向前端返回 e.getMessage()，避免泄露内部细节（如 "JWT signature does not match"）
+            log.warn("[JWT] Token 校验失败：{}", e.getMessage());
             return false;
         }
     }

@@ -95,6 +95,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { ElMessage } from 'element-plus'
 import { getExamResult } from '@/api/exam'
 
 const route = useRoute()
@@ -110,22 +111,35 @@ async function fetchRecord() {
   loading.value = true
   loadError.value = false
   try {
-    const q = route.query
-    if (q && (q.score !== undefined || q.totalScore !== undefined)) {
-      record.value = {
-        score: Number(q.score ?? 0),
-        totalScore: Number(q.totalScore ?? 0),
-        passed: q.passed === 'true' || q.passed === true,
-        correctCount: Number(q.correctCount ?? 0),
-        wrongCount: Number(q.wrongCount ?? 0),
-        unansweredCount: Number(q.unansweredCount ?? 0),
+    // 优先从 sessionStorage 读取（answer.vue 提交成功后写入）
+    const cached = sessionStorage.getItem('exam:lastResult')
+    if (cached) {
+      // 读取后立即清除，避免重复查看旧成绩
+      sessionStorage.removeItem('exam:lastResult')
+      try {
+        record.value = JSON.parse(cached)
+        reviewList.value = []
+        return
+      } catch (e) {
+        // JSON 解析失败，走兜底逻辑
       }
-      reviewList.value = []
-      return
     }
-    const data = await getExamResult(examId)
-    record.value = data || {}
-    reviewList.value = data?.details || data?.questions || []
+    // 兜底：通过 examId 查询最新成绩（用户从考试列表查看历史成绩时）
+    if (examId) {
+      try {
+        const data = await getExamResult(examId)
+        if (data) {
+          record.value = data
+          reviewList.value = data?.details || data?.questions || []
+          return
+        }
+      } catch (e) {
+        // 接口失败，走下面的提示
+      }
+    }
+    // sessionStorage 为空（用户直接访问 result 页面），提示并引导跳转回列表
+    ElMessage.warning('请从考试列表进入查看成绩')
+    router.replace('/exams')
   } catch (e) {
     loadError.value = true
   } finally {

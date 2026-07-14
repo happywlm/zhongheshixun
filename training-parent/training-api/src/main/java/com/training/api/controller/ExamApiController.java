@@ -75,7 +75,8 @@ public class ExamApiController {
     @PostMapping("/submit")
     public Result<ExamResultVO> submit(@RequestBody @Valid ExamSubmitDTO dto,
                                        @RequestAttribute("userId") Long userId) {
-        ExamResultVO vo = examBizService.submitExam(dto.getExamId(), userId, dto.getAnswers());
+        ExamResultVO vo = examBizService.submitExam(dto.getExamId(), userId, dto.getAnswers(),
+                dto.getClientStartTime(), dto.getClientEndTime());
         return Result.success(vo);
     }
 
@@ -83,10 +84,15 @@ public class ExamApiController {
      * 考试记录详情
      */
     @GetMapping("/record/{id}")
-    public Result<ExamRecord> recordDetail(@PathVariable Long id) {
+    public Result<ExamRecord> recordDetail(@PathVariable Long id,
+                                            @RequestAttribute("userId") Long userId) {
         ExamRecord record = examRecordMapper.selectById(id);
         if (record == null) {
             return Result.error(404, "考试记录不存在");
+        }
+        // [水平越权修复 / #3 评审项] 仅允许查看本人的考试记录，防止通过 id 枚举查看他人作答
+        if (record.getStudentId() == null || !record.getStudentId().equals(userId)) {
+            return Result.error(403, "无权查看他人考试记录");
         }
         return Result.success(record);
     }

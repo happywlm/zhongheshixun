@@ -94,6 +94,9 @@ const route = useRoute()
 const router = useRouter()
 const examId = route.params.id
 
+// 记录进入考试时刻的时间戳（与 examRecord.start_time 同步语义），用于后端交叉校验
+const clientStartTime = Date.now()
+
 const loading = ref(false)
 const submitting = ref(false)
 const examData = ref({})
@@ -192,6 +195,8 @@ async function doSubmit() {
   try {
     const payload = {
       examId,
+      clientStartTime,
+      clientEndTime: Date.now(),
       answers: questions.value.map((q) => ({
         questionId: q.id,
         answer: Array.isArray(answers.value[q.id])
@@ -201,15 +206,20 @@ async function doSubmit() {
     }
     const result = await submitExam(payload)
     ElMessage.success('交卷成功！')
-    // 把判分结果一起带到结果页
-    const qs = new URLSearchParams({
-      score: String(result?.score ?? 0),
-      totalScore: String(result?.totalScore ?? 0),
-      passed: String(result?.passed ?? false),
-      correctCount: String(result?.correctCount ?? 0),
-      wrongCount: String(result?.wrongCount ?? 0),
-    }).toString()
-    router.replace(`/exams/${examId}/result?${qs}`)
+    // 把判分结果写入 sessionStorage，避免 URL query 被篡改
+    sessionStorage.setItem(
+      'exam:lastResult',
+      JSON.stringify({
+        score: result?.score ?? 0,
+        totalScore: result?.totalScore ?? 0,
+        passed: result?.passed ?? false,
+        correctCount: result?.correctCount ?? 0,
+        wrongCount: result?.wrongCount ?? 0,
+        unansweredCount: result?.unansweredCount ?? 0,
+        examTitle: examData.value?.title || '',
+      })
+    )
+    router.replace(`/exams/${examId}/result`)
   } catch (e) {
     // 错误已由拦截器处理
     submitting.value = false
@@ -218,6 +228,8 @@ async function doSubmit() {
 
 // 路由离开守卫：考试进行中切换页面时提示
 onBeforeRouteLeave(async (to, from, next) => {
+  // 先清理计时器，避免 keep-alive / 路由复用时 setInterval 泄漏
+  if (timer) { clearInterval(timer); timer = null; }
   if (submitting.value) {
     // 已交卷，直接放行
     next()

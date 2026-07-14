@@ -78,6 +78,7 @@ public interface ConsultService {
      * 学员主动转人工：将已自动回复的咨询转为人工工单等待人工回复
      *
      * @param consultId 咨询记录ID
+     * @param userId    当前登录学员ID（用于越权校验，仅允许本人转人工自己的咨询）
      */
-    void transferHuman(Long consultId);
+    void transferHuman(Long consultId, Long userId);
 }

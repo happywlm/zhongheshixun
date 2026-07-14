@@ -3,6 +3,16 @@
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.training.mapper.SysRolePermissionMapper">
 
+    <!--
+      设计决策（#27 评审项）：
+      sys_role_permission 是角色-权限多对多关联表（仅 role_id + permission_id + create_time），
+      无 deleted 字段，不参与全局逻辑删除策略。
+      保留物理 DELETE 是合理设计：
+        1) 关联表无业务含义，重新分配权限时直接清空再批量插入，逻辑删除会累积"墓碑行"破坏 UNIQUE 约束（uk_role_perm）；
+        2) 重新分配权限的语义本就是"覆盖式更新"，物理删除符合预期；
+        3) 真正需要审计追溯的是 sys_role / sys_permission 主表，关联表不需保留历史。
+      因此此处不改为 UPDATE deleted=1，保留 DELETE。
+    -->
     <delete id="deleteByRoleId">
         DELETE FROM sys_role_permission
         WHERE role_id = #{roleId}

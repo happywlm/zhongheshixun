@@ -119,12 +119,47 @@ public class UserManagementController {
     /**
      * 管理员重置他人密码（无需原密码）
      * <p>管理员忘记用户密码时的兜底接口，需 user:write 权限。</p>
+     * <p>[水平越权修复 / #3 评审项] 加等级限制：低级管理员不能重置高级管理员密码；
+     * 同级之间也不允许互相重置（除自助外）。允许的两种场景：
+     * 1) 重置自己（current.id == target.id）；
+     * 2) 重置下级（currentLevel > targetLevel）。
+     * 角色等级基于 sys_role.role_code 推导：ADMIN=3, TEACHER=2, STUDENT=1。</p>
      */
     @PreAuthorize("hasAuthority('user:write')")
     @PutMapping("/{id}/reset-password")
     public Result<Boolean> resetPassword(@PathVariable Long id,
-                                         @RequestBody @Valid ResetPasswordDTO dto) {
+                                         @RequestBody @Valid ResetPasswordDTO dto,
+                                         @AuthenticationPrincipal LoginUser loginUser) {
+        if (loginUser == null || loginUser.getId() == null) {
+            return Result.error(401, "未登录或登录已失效");
+        }
+        SysUser target = userService.getUserDetail(id);
+        if (target == null) {
+            return Result.error(404, "用户不存在");
+        }
+        int currentLevel = roleLevel(loginUser.getRoleCode());
+        int targetLevel = roleLevel(target.getRole());
+        // 仅允许"重置自己"或"重置下级"
+        if (!loginUser.getId().equals(id) && currentLevel <= targetLevel) {
+            return Result.error(403, "无权重置同级或更高级管理员密码");
+        }
         boolean ok = userService.resetPassword(id, dto.getNewPassword());
         return Result.success(ok);
+    }
+
+    /**
+     * 角色编码 → 等级数值（数值越大权限越高）
+     * ADMIN=3, TEACHER=2, STUDENT=1, 未知=0
+     */
+    private int roleLevel(String roleCode) {
+        if (roleCode == null) {
+            return 0;
+        }
+        switch (roleCode.toUpperCase()) {
+            case "ADMIN": return 3;
+            case "TEACHER": return 2;
+            case "STUDENT": return 1;
+            default: return 0;
+        }
     }
 }
