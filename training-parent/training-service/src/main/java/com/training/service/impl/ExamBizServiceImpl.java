@@ -76,8 +76,8 @@ public class ExamBizServiceImpl implements ExamBizService {
             throw new BusinessException(ResultCode.PARAM_ERROR.getCode(), "知识点ID列表不能为空");
         }
 
-        // 2. 收集候选题目（按知识点）
-        List<Question> allQuestions = questionMapper.selectByKnowledgePoints(knowledgePointIds);
+        // 2. 收集候选题目（按知识点 + 当前课程，严格限定不跨课程混抽）
+        List<Question> allQuestions = questionMapper.selectByKnowledgePoints(exam.getCourseId(), knowledgePointIds);
         if (allQuestions.isEmpty()) {
             throw new BusinessException(ResultCode.BUSINESS_ERROR.getCode(), "该知识点题库为空，无法组卷");
         }

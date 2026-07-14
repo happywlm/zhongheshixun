@@ -40,6 +40,9 @@
     <select id="selectByKnowledgePoints" resultMap="BaseResultMap">
         SELECT * FROM question
         WHERE deleted = 0
+          <if test="courseId != null">
+              AND course_id = #{courseId}
+          </if>
           AND knowledge_point_id IN
           <foreach collection="kpIds" item="id" open="(" separator="," close=")">
               #{id}

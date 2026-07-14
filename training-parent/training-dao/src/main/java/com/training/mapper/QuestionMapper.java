@@ -24,9 +24,10 @@ public interface QuestionMapper extends BaseMapper<Question> {
                                        @Param("difficulty") Integer difficulty);
 
     /**
-     * 按知识点ID列表查询试题
+     * 按知识点ID列表查询试题（课程考试严格限定当前课程，避免跨课程混抽）
      */
-    List<Question> selectByKnowledgePoints(@Param("kpIds") List<Long> kpIds);
+    List<Question> selectByKnowledgePoints(@Param("courseId") Long courseId,
+                                           @Param("kpIds") List<Long> kpIds);
 
     /**
      * 按知识点ID列表查询试题ID
