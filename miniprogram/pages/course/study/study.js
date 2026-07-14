@@ -12,6 +12,7 @@ Page({
     currentChapter: null,  // 当前章节对象
     progressMap: {},       // chapterId → { progress, lastPosition, studyDuration }
     overallProgress: 0,    // 总进度 0-100
+    enterTime: 0,          // 进入学习页的时间戳（用于计算实际停留秒数）
     loading: true
   },
 
@@ -29,7 +30,13 @@ Page({
       return
     }
 
-    this.setData({ courseId })
+    this.setData({ courseId, enterTime: Date.now() })
+    // 记录最近学习的课程顺序（首页"最近学习"按此排序）
+    const recentIds = wx.getStorageSync('recentCourseIds') || []
+    const idx = recentIds.indexOf(courseId)
+    if (idx > -1) recentIds.splice(idx, 1)
+    recentIds.unshift(courseId)
+    wx.setStorageSync('recentCourseIds', recentIds.slice(0, 20))
     this.loadCourseDetail(courseId)
   },
 
@@ -149,11 +156,13 @@ Page({
     if (!this.data.currentChapter) return
     const chapterId = this.data.currentChapter.id
     const p = this.data.progressMap[chapterId] || {}
+    // 实际停留秒数（至少 1 秒，避免 0）
+    const studyDuration = Math.max(1, Math.round((Date.now() - (this.data.enterTime || Date.now())) / 1000))
     studyApi.reportProgress({
       courseId: this.data.courseId,
       chapterId,
       progress: p.progress || 0,
-      studyDuration: 10,
+      studyDuration,
       lastPosition: p.lastPosition || 0
     }).catch(err => {
       console.warn('最终进度上报失败', err)

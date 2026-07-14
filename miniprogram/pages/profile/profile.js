@@ -36,6 +36,15 @@ Page({
     this.loadStats()
   },
 
+  // 下拉刷新
+  onPullDownRefresh() {
+    Promise.all([this.loadProfile(), this.loadStats()]).then(() => {
+      wx.stopPullDownRefresh()
+    }).catch(() => {
+      wx.stopPullDownRefresh()
+    })
+  },
+
   onShow() {
     // 所有 tabBar 页统一登录态检查
     if (!wx.getStorageSync('token')) {

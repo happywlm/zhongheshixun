@@ -31,7 +31,7 @@
       <view class="chapter-info">
         <view class="chapter-title">{{chapter.title}}</view>
         <view class="chapter-duration">时长：{{chapter.duration}}秒</view>
-        <view class="chapter-progress" wx:if="{{progress && progress[index]}}">进度：{{progress[index].progress}}%</view>
+        <view class="chapter-progress" wx:if="{{progressMap[chapter.id]}}">进度：{{progressMap[chapter.id].progress}}%</view>
       </view>
       <view class="chapter-arrow">›</view>
     </view>

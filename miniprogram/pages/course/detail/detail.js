@@ -7,7 +7,7 @@ Page({
     detail: null,
     loading: true,
     enrolled: false,      // 是否已报名
-    progress: null        // 章节级学习进度
+    progressMap: {}       // 章节级学习进度：chapterId → { progress }
   },
 
   onLoad(options) {
@@ -59,7 +59,16 @@ Page({
       ])
       // 修复 #2 类似问题：id 类型归一化比较
       const enrolled = (my.records || []).some(c => String(c.id) === String(id))
-      this.setData({ enrolled, progress })
+      // 修复进度错位：progress 是"仅有学习记录的章节"数组，按 chapterId 标识
+      // 旧实现直接存数组，WXML 用 progress[index] 下标匹配 → 顺序与章节列表无关，进度全错
+      // 新实现转为 progressMap（chapterId → { progress }），WXML 用 progressMap[chapter.id] 精确匹配
+      const progressMap = {}
+      ;(progress || []).forEach(p => {
+        if (p && p.chapterId != null) {
+          progressMap[p.chapterId] = { progress: p.progress || 0 }
+        }
+      })
+      this.setData({ enrolled, progressMap })
     } catch (e) {
       // 忽略
     }

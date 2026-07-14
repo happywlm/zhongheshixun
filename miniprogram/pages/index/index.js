@@ -80,10 +80,11 @@ Page({
   async loadAll() {
     this.setData({ loading: true })
 
-    const [recRes, statsRes, myRes] = await Promise.allSettled([
+    const [recRes, statsRes, myRes, examRes] = await Promise.allSettled([
       courseApi.getList({ pageNum: 1, pageSize: 6 }),
       statsApi.getMyStats(),
-      courseApi.getMyCourses({ pageNum: 1, pageSize: 50 })
+      courseApi.getMyCourses({ pageNum: 1, pageSize: 50 }),
+      examApi.getList()
     ])
 
     // ---- 推荐课程 ----
@@ -92,9 +93,25 @@ Page({
       : []
 
     // ---- 我的课程（最近学习前 2 条） ----
-    const myRecords = (myRes.status === 'fulfilled' && myRes.value)
-      ? (myRes.value.records || []).slice(0, 2)
-      : []
+    // 后端 /my-courses 按报名时间排序，不是学习时间
+    // 修复：按 localStorage 的 recentCourseIds（学习页记录的访问顺序）排序
+    const allMyCourses = (myRes.status === 'fulfilled' && myRes.value)
+      ? (myRes.value.records || []) : []
+    const recentIds = wx.getStorageSync('recentCourseIds') || []
+    if (recentIds.length > 0) {
+      // 按 recentIds 顺序排（最近学习的在前），不在 recentIds 中的保持原序排后面
+      const idIndex = {}
+      recentIds.forEach((id, i) => { idIndex[String(id)] = i })
+      allMyCourses.sort((a, b) => {
+        const ai = idIndex[String(a.id)]
+        const bi = idIndex[String(b.id)]
+        if (ai != null && bi != null) return ai - bi
+        if (ai != null) return -1
+        if (bi != null) return 1
+        return 0
+      })
+    }
+    const myRecords = allMyCourses.slice(0, 2)
 
     // 为最近学习的 2 门课程并发查询章节级进度 → overallProgress
     const recentCourses = await Promise.all(myRecords.map(async (c) => {
@@ -113,42 +130,43 @@ Page({
       passRate: 0
     }
 
+    // 考试列表：用于补算 passedCount/passRate/avgScore
+    // 注意：必须用 /exam/list（返回 ExamListVO，含 passed/score/passScore）
+    // 不能用 /exam/my-records（返回原始 ExamRecord，无 passed 字段 → 通过率恒 0）
+    const examList = (examRes.status === 'fulfilled' && Array.isArray(examRes.value))
+      ? examRes.value : []
+    // 只统计已考过的（有 score 的），未考的 examListVO.score 为 null
+    const examDone = examList.filter(e => e.score != null)
+    const passedCount = examDone.filter(e => e.passed === true).length
+    const examCount = examDone.length
+
     if (statsRes.status === 'fulfilled' && statsRes.value) {
       const s = statsRes.value
       // 后端 MyStatVO 字段：enrollCount/completedChapters/examCount/examAvgScore/consultCount/totalStudyHours
       // 前端期望：courseCount/studyHours/completedCourses/examCount/passedCount/avgScore/passRate
-      // 注：后端无 passedCount 字段，保持 0（或后续后端补字段）
-      const examCount = s.examCount ?? 0
+      // passedCount/passRate 由 examRecords 补算（后端无 passedCount 字段）
       stats = {
         courseCount: s.enrollCount ?? s.courseCount ?? 0,
         studyHours: s.totalStudyHours ?? s.studyHours ?? 0,
         completedCourses: s.completedChapters ?? s.completedCourses ?? 0,
-        examCount,
-        passedCount: s.passedCount ?? 0,
+        examCount: examCount || s.examCount || 0,
+        passedCount,
         avgScore: s.examAvgScore ?? s.avgScore ?? 0,
-        passRate: examCount > 0 ? Math.round((s.passedCount ?? 0) * 100 / examCount) : 0
+        passRate: examCount > 0 ? Math.round(passedCount * 100 / examCount) : 0
       }
     } else {
       // 降级：从 my-courses 凑 courseCount（学习时长无法降级获取真实值，保持 0）
       const myForFallback = (myRes.status === 'fulfilled' && myRes.value)
         ? (myRes.value.records || []) : []
       stats.courseCount = myForFallback.length
-      // 学习时长不降级（避免用课程 totalHours 误显示成几十小时）
       stats.studyHours = 0
-      // 平均分从 examApi 补算
-      try {
-        const records = await examApi.getMyRecords()
-        if (Array.isArray(records) && records.length) {
-          const examCount = records.length
-          const passedCount = records.filter(r => r.passed).length
-          stats.examCount = examCount
-          stats.passedCount = passedCount
-          stats.passRate = Math.round(passedCount * 100 / examCount)
-          const total = records.reduce((s, r) => s + (r.score || 0), 0)
-          stats.avgScore = Math.round(total / records.length * 10) / 10
-        }
-      } catch (e) {
-        // 降级失败保持默认 0
+      // 考试统计从 examList 补算
+      stats.examCount = examCount
+      stats.passedCount = passedCount
+      stats.passRate = examCount > 0 ? Math.round(passedCount * 100 / examCount) : 0
+      if (examCount > 0) {
+        const total = examDone.reduce((s, e) => s + (e.score || 0), 0)
+        stats.avgScore = Math.round(total / examCount * 10) / 10
       }
     }
 

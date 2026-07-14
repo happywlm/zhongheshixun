@@ -1,5 +1,5 @@
 // pages/profile/records/records.js
-// 学习记录：我的考试记录时间线
+// 考试记录：我的考试记录时间线
 const examApi = require('../../../api/exam')
 
 Page({
@@ -15,38 +15,43 @@ Page({
   async loadData() {
     this.setData({ loading: true })
     try {
-      const list = await examApi.getMyRecords()
-      // 按提交时间倒序
-      const sorted = (list || []).sort((a, b) => {
-        const ta = new Date(a.submitTime).getTime() || 0
-        const tb = new Date(b.submitTime).getTime() || 0
-        return tb - ta
-      })
+      // 第一步：用 /exam/list 拿考试列表（含 title/score/passed/recordId）
+      const list = await examApi.getList()
+      // 只保留已考过的（score != null 表示有考试记录）
+      const done = (list || []).filter(e => e.score != null && e.score !== undefined)
 
-      // 修复：ExamRecord 实体只有 examId/score/submitTime，缺 examTitle/correctCount/totalCount/passed
-      // 用每个 record 的 examId 调 /exam/result 拉完整数据（并发）
-      const enriched = await Promise.all(sorted.map(async (r) => {
-        if (!r.examId) return r
-        try {
-          const detail = await examApi.getResult(r.examId)
-          return {
-            ...r,
-            examTitle: detail.examTitle || r.examTitle || `考试 #${r.examId}`,
-            score: detail.score ?? r.score ?? 0,
-            totalScore: detail.totalScore ?? 0,
-            passed: detail.passed ?? r.passed ?? false,
-            correctCount: detail.correctCount ?? 0,
-            wrongCount: detail.wrongCount ?? 0,
-            unansweredCount: detail.unansweredCount ?? 0,
-            totalCount: (detail.correctCount || 0) + (detail.wrongCount || 0) + (detail.unansweredCount || 0)
+      // 第二步：用每个 exam 的 recordId 调 /exam/result 补全对错统计和提交时间
+      // （ExamListVO 的 correctCount/wrongCount 置 null，submitTime 不返回）
+      const records = await Promise.all(done.map(async (e) => {
+        let correctCount = 0, wrongCount = 0, unansweredCount = 0, totalCount = 0, submitTime = ''
+        if (e.recordId) {
+          try {
+            const detail = await examApi.getResult(e.id)
+            correctCount = detail.correctCount ?? 0
+            wrongCount = detail.wrongCount ?? 0
+            unansweredCount = detail.unansweredCount ?? 0
+            totalCount = correctCount + wrongCount + unansweredCount
+          } catch (err) {
+            // 单条失败用 questionCount 兜底
           }
-        } catch (e) {
-          // 单条失败不影响其他，返回原始数据
-          return { ...r, examTitle: r.examTitle || `考试 #${r.examId}` }
+        }
+        if (totalCount === 0 && e.questionCount) totalCount = e.questionCount
+        return {
+          id: e.recordId || e.id,
+          examId: e.id,
+          examTitle: e.title || '未命名考试',
+          score: e.score ?? 0,
+          totalScore: e.totalScore ?? 0,
+          passed: e.passed === true,
+          correctCount,
+          wrongCount,
+          unansweredCount,
+          totalCount,
+          submitTime
         }
       }))
 
-      this.setData({ records: enriched, loading: false })
+      this.setData({ records, loading: false })
     } catch (e) {
       console.error('[records] load error', e)
       this.setData({ loading: false })
@@ -55,11 +60,8 @@ Page({
   },
 
   // 跳转到考试结果页
-  // 修复：补传 examId，result 页用它调 /exam/result 拉完整对错统计
-  // 注意：WXML 里 data-exam-id 会自动转成 dataset.examId（驼峰），不是 examid
   goRecord(e) {
     const { id, examId } = e.currentTarget.dataset
-    console.log('[goRecord] dataset:', e.currentTarget.dataset, 'id:', id, 'examId:', examId)
     wx.navigateTo({
       url: `/pages/exam/result/result?id=${id}&examId=${examId}&from=records`
     })

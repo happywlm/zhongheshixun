@@ -55,7 +55,7 @@
           </view>
         </view>
         <view class="card-footer">
-          <text class="submit-time">提交于 {{item.submitTime || '未知时间'}}</text>
+          <text class="submit-time" wx:if="{{item.submitTime}}">提交于 {{item.submitTime}}</text>
         </view>
       </view>
     </view>
